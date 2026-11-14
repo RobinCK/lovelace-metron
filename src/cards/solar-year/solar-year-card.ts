@@ -156,7 +156,7 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
         period: 'day',
         types: ['change', 'state'],
       });
-      const values = bucketize(result.get(config.entity), starts, changeOf, 'sum');
+      const values = bucketize(result.get(config.entity), starts, changeOf, 'sum', end);
       const rows = result.get(config.entity) ?? [];
       const state = rows[rows.length - 1]?.state;
       const current = readNumber(hass, config.entity, 'energy');

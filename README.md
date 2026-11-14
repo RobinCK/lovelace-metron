@@ -330,6 +330,104 @@ average day.
 Options: `entity` (solar energy counter; energy sensors when omitted), `weeks` (`53`), `good_day`
 (kWh, counts the days above it), `max` (kWh for the full color), `color`, `first_weekday`.
 
+### Gas — `custom:metron-gas-card`
+
+Gas this month with the year-over-year change, today and the daily average, indoor and outdoor
+temperatures, daily bars, specific use per degree-day and the boiler run time today.
+
+```yaml
+type: custom:metron-gas-card
+gas: sensor.gas_meter
+indoor: sensor.indoor_temperature
+outdoor: sensor.outdoor_temperature
+boiler: binary_sensor.boiler_heating
+```
+
+Options: `gas` (gas counter(s); the energy dashboard gas source when omitted), `indoor`, `outdoor`
+(temperature sensors with statistics), `boiler` (binary sensor, switch or climate), `base_temperature`
+(degree-day base, `18` °C), `compare` (year over year, `true`), `energy_dashboard`.
+
+### Heating season — `custom:metron-season-card`
+
+Cumulative gas for the heating season by week against last season, a forecast for the rest of
+the season scaled by how this season compares so far, degree-days and weather-adjusted use.
+
+Options: `gas`, `outdoor`, `base_temperature` (`18`), `season_start` (`10-15`), `season_end`
+(`04-30`), `energy_dashboard`.
+
+### Money — `custom:metron-money-card`
+
+The bill of the month so far and its forecast, savings from solar against a bill without it,
+monthly net metering of import and export, and the lines of the bill.
+
+```yaml
+type: custom:metron-money-card
+electricity_price: 4.32
+export_price: 5.88
+gas_price: 7.96
+gas: sensor.gas_meter
+```
+
+| Option              | Default         | Description                                                  |
+| ------------------- | --------------- | ------------------------------------------------------------ |
+| `electricity_price` | —               | Price per kWh: a number or a price sensor.                   |
+| `export_price`      | —               | Price paid per exported kWh.                                 |
+| `gas_price`         | —               | Price per m³; adds the gas line.                             |
+| `netting`           | `true`          | Bill only the monthly net: import − export, export − import. |
+| `currency`          | system currency | ISO code, e.g. `UAH`, `EUR`.                                 |
+| `note`              | —               | Footnote text.                                               |
+
+### Tariff zones — `custom:metron-tariff-card`
+
+What the net import of the period would cost on time-of-use plans compared with the single-zone
+price, plus a scenario that charges the battery in the cheap zone. Ukrainian two- and three-zone
+plans are the default.
+
+```yaml
+type: custom:metron-tariff-card
+price: 4.32
+plans:
+  - name: Two zones
+    zones:
+      - { from: '23:00', to: '07:00', factor: 0.5 }
+  - name: Three zones
+    zones:
+      - { from: '23:00', to: '07:00', factor: 0.4 }
+      - { from: '08:00', to: '11:00', factor: 1.5 }
+      - { from: '20:00', to: '22:00', factor: 1.5 }
+```
+
+Options: `price`, `plans`, `battery_shift` (`true`), `shift_loss` (%, `10`), `period` (`month`),
+`currency`.
+
+### Monthly limit — `custom:metron-budget-card`
+
+Cumulative import, consumption or gas against a monthly budget, the forecast, the day the limit
+runs out and the daily pace needed to stay within it.
+
+Options: `budget` (number or entity), `metric` (`import`, `consumption`, `gas`), `gas`, `height`.
+
+### Losses — `custom:metron-losses-card`
+
+Energy lost in conversion stages, each defined by an input and an output energy counter, the
+chain efficiency against a reference input and the cost of the losses.
+
+```yaml
+type: custom:metron-losses-card
+input: sensor.deye_day_pv_energy
+price: 4.32
+stages:
+  - name: Stabilizers
+    input: sensor.stabilizer_in_energy
+    output: sensor.stabilizer_out_energy
+  - name: Battery cycle
+    input: sensor.deye_day_battery_charge
+    output: sensor.deye_day_battery_discharge
+```
+
+Options: `stages` (`name`, `input`, `output`, `color`), `input` (reference input; solar energy when
+omitted), `price`, `currency`, `period` (`month`).
+
 ## Development
 
 ```bash

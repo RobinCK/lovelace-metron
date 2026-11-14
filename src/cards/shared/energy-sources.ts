@@ -3,6 +3,7 @@ import * as cfg from '../../core/config';
 import { bucketize, changeOf, fetchStatistics } from '../../core/data/statistics';
 import type { StatisticPeriod, StatisticRow, StatisticsResult } from '../../core/data/statistics';
 import { readNumber } from '../../core/entities';
+import type { Quantity } from '../../core/entities';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { FormField } from '../../ui/form';
@@ -194,9 +195,10 @@ const entitySeries = (
   starts: readonly number[],
   end: number,
   live: LiveTail | undefined,
+  quantity: Quantity = 'energy',
 ): Series => {
   const rows = stats.get(entityId);
-  const values = bucketize(rows, starts, changeOf, 'sum');
+  const values = bucketize(rows, starts, changeOf, 'sum', end);
 
   if (!live || live.now < (starts[0] ?? 0) || live.now >= end) return values;
 
@@ -204,7 +206,7 @@ const entitySeries = (
     (found, start, position) => (start <= live.now ? position : found),
     0,
   );
-  const tail = tailOf(rows, readNumber(live.hass, entityId, 'energy'));
+  const tail = tailOf(rows, readNumber(live.hass, entityId, quantity));
 
   if (tail <= 0) return values;
 
@@ -293,4 +295,27 @@ export const selfConsumption = (balance: Balance): number | undefined => {
   }
 
   return Math.min(1, Math.max(0, 1 - balance.export / balance.solar));
+};
+
+export const counterSeries = (
+  stats: StatisticsResult,
+  ids: readonly string[],
+  starts: readonly number[],
+  end: number,
+  live?: LiveTail,
+  quantity: Quantity = 'energy',
+): Series =>
+  sumSeries(
+    ids.map((id) => entitySeries(stats, id, starts, end, live, quantity)),
+    starts.length,
+  );
+
+export const resolveGas = async (
+  hass: HomeAssistant,
+  explicit: readonly string[],
+  useDashboard: boolean,
+): Promise<string[]> => {
+  if (explicit.length > 0 || !useDashboard) return [...explicit];
+
+  return preferenceSources(await fetchEnergyPreferences(hass)).gas ?? [];
 };

@@ -1,12 +1,18 @@
+import { MetronBudgetCard } from './cards/budget/budget-card';
 import { MetronCalendarCard } from './cards/calendar/calendar-card';
 import { MetronDevicesCard } from './cards/devices/devices-card';
 import { MetronEnergyDayCard } from './cards/energy-day/energy-day-card';
 import { MetronFlowCard } from './cards/flow/flow-card';
+import { MetronGasCard } from './cards/gas/gas-card';
 import { MetronHistoryCard } from './cards/history/history-card';
 import { MetronStatsCard } from './cards/stats/stats-card';
 import { MetronLiveCard } from './cards/live/live-card';
+import { MetronLossesCard } from './cards/losses/losses-card';
+import { MetronMoneyCard } from './cards/money/money-card';
 import { MetronProfileCard } from './cards/profile/profile-card';
+import { MetronSeasonCard } from './cards/season/season-card';
 import { MetronSolarYearCard } from './cards/solar-year/solar-year-card';
+import { MetronTariffCard } from './cards/tariff/tariff-card';
 import { MetronStatusCard } from './cards/status/status-card';
 import { MetronTileCard } from './cards/tile/tile-card';
 import { MetronWeekCompareCard } from './cards/week-compare/week-compare-card';
@@ -103,5 +109,45 @@ export const CARDS: readonly CardDefinition[] = [
     element: MetronSolarYearCard,
     name: 'Metron · Solar year',
     description: 'A year of daily solar production as a calendar heatmap with the best day.',
+  },
+  {
+    type: 'metron-gas-card',
+    element: MetronGasCard,
+    name: 'Metron · Gas',
+    description:
+      'Monthly gas use with temperatures, degree-days, specific use and boiler run time.',
+  },
+  {
+    type: 'metron-season-card',
+    element: MetronSeasonCard,
+    name: 'Metron · Heating season',
+    description: 'Cumulative gas for the heating season against last season with a forecast.',
+  },
+  {
+    type: 'metron-money-card',
+    element: MetronMoneyCard,
+    name: 'Metron · Money',
+    description:
+      'Electricity and gas bill of the month with net metering, export income and savings.',
+  },
+  {
+    type: 'metron-tariff-card',
+    element: MetronTariffCard,
+    name: 'Metron · Tariff zones',
+    description:
+      'What your import would cost on time-of-use plans, including a battery shift scenario.',
+  },
+  {
+    type: 'metron-budget-card',
+    element: MetronBudgetCard,
+    name: 'Metron · Monthly limit',
+    description: 'Cumulative import, consumption or gas against a monthly budget with a forecast.',
+  },
+  {
+    type: 'metron-losses-card',
+    element: MetronLossesCard,
+    name: 'Metron · Losses',
+    description:
+      'Energy lost in conversion stages such as stabilizers, inverters and battery cycles.',
   },
 ];

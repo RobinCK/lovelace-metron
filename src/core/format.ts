@@ -194,3 +194,40 @@ export const formatDuration = (minutes: number, t: Localize): string => {
 
   return t('duration.hm', { h: parts.hours, m: String(parts.minutes).padStart(2, '0') });
 };
+
+const moneyFormats = new Map<string, Intl.NumberFormat>();
+
+export const formatMoney = (
+  value: number | undefined,
+  locale: FormatLocale,
+  currency: string | undefined,
+  digits = 0,
+): string => {
+  if (value === undefined || !Number.isFinite(value)) return DASH;
+
+  const code = currency ?? '';
+  const key = JSON.stringify([locale.numberLocale, code, digits]);
+  let format = moneyFormats.get(key);
+
+  if (!format) {
+    try {
+      format = new Intl.NumberFormat(locale.numberLocale as string | string[] | undefined, {
+        style: 'currency',
+        currency: code,
+        currencyDisplay: 'narrowSymbol',
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      });
+    } catch {
+      format = numberFormat(digits, locale);
+    }
+
+    moneyFormats.set(key, format);
+  }
+
+  const text = format.format(Math.abs(value)).replace(/\u00a0|\u202f/g, ' ');
+  const rounded = Number(Math.abs(value).toFixed(digits));
+  const signed = value < 0 && rounded !== 0 ? `${MINUS}${text}` : text;
+
+  return format.resolvedOptions().style === 'currency' || !code ? signed : `${signed} ${code}`;
+};

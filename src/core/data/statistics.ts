@@ -84,16 +84,17 @@ export const bucketize = (
   starts: readonly number[],
   pick: RowValue,
   combine: 'sum' | 'mean' | 'min' | 'max' = 'sum',
+  end = Number.POSITIVE_INFINITY,
 ): (number | undefined)[] => {
   const buckets: number[][] = starts.map(() => []);
 
   for (const row of rows ?? []) {
     const value = pick(row);
 
-    if (value === null || value === undefined) continue;
+    if (value === null || value === undefined || row.start >= end) continue;
 
     const index = starts.findIndex(
-      (start, i) => row.start >= start && row.start < (starts[i + 1] ?? Number.POSITIVE_INFINITY),
+      (start, i) => row.start >= start && row.start < (starts[i + 1] ?? end),
     );
 
     if (index >= 0) buckets[index]?.push(value);
