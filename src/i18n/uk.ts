@@ -2,22 +2,14 @@ import type { TranslationKey } from './en';
 
 export const UK: Readonly<Partial<Record<TranslationKey, string>>> = {
   'common.today': 'Сьогодні',
-  'common.yesterday': 'Вчора',
   'common.now': 'Зараз',
   'common.total': 'Разом',
-  'common.average': 'Середнє',
-  'common.min': 'Мін.',
   'common.max': 'Макс.',
   'common.peak': 'Пік',
   'common.forecast': 'прогноз',
-  'common.actual': 'факт',
   'common.no_data': 'Ще немає даних',
   'common.loading': 'Завантаження…',
   'common.this_week': 'Цей тиждень',
-  'common.last_week': 'Минулий тиждень',
-  'common.this_month': 'Цей місяць',
-  'common.days': 'днів',
-  'common.unknown': 'невідомо',
 
   'unit.h': 'год',
   'unit.min': 'хв',
@@ -33,7 +25,6 @@ export const UK: Readonly<Partial<Record<TranslationKey, string>>> = {
 
   'duration.hm': '{h} год {m} хв',
   'duration.m': '{m} хв',
-  'duration.dh': '{d} д {h} год',
 
   'editor.title': 'Заголовок',
   'editor.language': 'Мова',
@@ -48,19 +39,14 @@ export const UK: Readonly<Partial<Record<TranslationKey, string>>> = {
   'editor.battery_capacity': 'Ємність АКБ',
   'editor.battery_reserve': 'Резерв АКБ',
   'editor.entity': 'Сутність',
-  'editor.name': 'Назва',
-  'editor.icon': 'Іконка',
   'editor.color': 'Колір',
   'editor.minutes': 'Хвилин на графіку',
-  'editor.hours': 'Годин на графіку',
   'editor.days': 'Днів на графіку',
-  'editor.series': 'Серії',
   'editor.chips': 'Чипи',
   'editor.devices': 'Пристрої',
   'editor.total_power': 'Загальна потужність',
   'editor.total_energy': 'Загальна енергія',
   'editor.threshold': 'Поріг роботи',
-  'editor.secondary': 'Додаткова сутність',
   'editor.solar_forecast': 'Прогноз сонця на сьогодні',
   'editor.sparkline': 'Спарклайн',
   'editor.solar_strings': 'Стрінги сонця',
@@ -509,8 +495,6 @@ export const UK: Readonly<Partial<Record<TranslationKey, string>>> = {
   'expansion.with_expansion': 'з розширенням',
   'expansion.generation_year': 'Генерація за рік',
   'expansion.export_year': 'Експорт за рік',
-
-  'status.title': 'Статус',
 
   'items.today': 'сьогодні',
 

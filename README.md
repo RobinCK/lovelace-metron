@@ -1,9 +1,33 @@
 # Metron
 
-A collection of Home Assistant Lovelace cards for energy, gas and solar data: live flows,
-history, statistics, money, forecasts and analysis. Every card reads entities you already have,
-uses Home Assistant long-term statistics where history matters, follows the active theme and is
-translated (English and Ukrainian; any text can be overridden).
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![GitHub release](https://img.shields.io/github/v/release/RobinCK/lovelace-metron)](https://github.com/RobinCK/lovelace-metron/releases/latest)
+[![CI](https://github.com/RobinCK/lovelace-metron/actions/workflows/ci.yml/badge.svg)](https://github.com/RobinCK/lovelace-metron/actions/workflows/ci.yml)
+
+Thirty Home Assistant Lovelace cards for energy, solar, battery, gas and money: live flows,
+days, months and years of statistics, forecasts, bills and analysis of how the house uses energy.
+One resource, one look, every card configurable from the visual editor or YAML.
+
+| Energy flow                                                    | Energy day                                                          |
+| -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| <img src="docs/images/flow.png" width="420" alt="Energy flow"> | <img src="docs/images/energy-day.png" width="420" alt="Energy day"> |
+
+| Money                                                     | Light theme                                                          | Ukrainian                                                             |
+| --------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| <img src="docs/images/money.png" width="280" alt="Money"> | <img src="docs/images/light/flow.png" width="280" alt="Light theme"> | <img src="docs/images/uk/energy-day.png" width="280" alt="Ukrainian"> |
+
+## Features
+
+- **Works with what you have.** Statistics cards read the Home Assistant energy dashboard, so a
+  configured dashboard is enough; any sensor can be set or overridden per card.
+- **Long-term statistics.** History comes from recorder statistics: daily meters and lifetime
+  counters both work, units are converted (W/kW, Wh/kWh/MWh, m³/L/ft³) and the ongoing hour is
+  added from the live state.
+- **Theme-aware.** Text and backgrounds follow the active theme; the accent colors can be changed
+  per card or globally from a theme.
+- **Translated.** English and Ukrainian, chosen from the Home Assistant language or per card; any
+  text can be replaced with `labels`.
+- **Visual editor.** Every card has a form editor; lists of entities use the object editor.
 
 ## Installation
 
@@ -39,7 +63,44 @@ converted automatically.
 
 ## Cards
 
+| Card              | Type                            | What it shows                                                           |
+| ----------------- | ------------------------------- | ----------------------------------------------------------------------- |
+| Energy flow       | `metron-flow-card`              | Live power flows, battery and grid panels, autonomy during an outage    |
+| Status chips      | `metron-status-card`            | A compact row of key values with bars and phase marks                   |
+| Tiles             | `metron-tile-card`              | Entity tiles with hourly sparklines                                     |
+| Live power        | `metron-live-card`              | Minute bars for the last hour                                           |
+| Consumers         | `metron-devices-card`           | Devices: power, energy today, run state, unaccounted                    |
+| Energy day        | `metron-energy-day-card`        | Half-hour production and consumption of a day, sources and destinations |
+| Metrics           | `metron-stats-card`             | Self-consumption, self-sufficiency, net grid with comparison            |
+| Month history     | `metron-history-card`           | Daily energy of a month by source                                       |
+| Year by months    | `metron-year-card`              | Monthly generation, consumption and net balance                         |
+| Period comparison | `metron-week-compare-card`      | This week against last week, metric by metric                           |
+| Daily calendar    | `metron-calendar-card`          | A month of self-sufficiency rings with outage marks                     |
+| Load profile      | `metron-profile-card`           | Weekday × hour heatmap of the load                                      |
+| Solar year        | `metron-solar-year-card`        | A year of daily solar production                                        |
+| Gas               | `metron-gas-card`               | Gas of the month with temperatures, degree-days and the boiler          |
+| Heating season    | `metron-season-card`            | Cumulative season gas against last season with a forecast               |
+| Money             | `metron-money-card`             | The bill of the month, net metering and savings                         |
+| Tariff zones      | `metron-tariff-card`            | Your import priced on time-of-use plans                                 |
+| Monthly limit     | `metron-budget-card`            | Import, consumption or gas against a monthly budget                     |
+| Losses            | `metron-losses-card`            | Energy lost in stabilizers, inverters and battery cycles                |
+| Solar forecast    | `metron-forecast-card`          | Forecast days, the typical load and the surplus window                  |
+| Forecast accuracy | `metron-forecast-accuracy-card` | Forecast against actual production                                      |
+| Week ahead        | `metron-week-ahead-card`        | Weather, solar, gas and outages for seven days                          |
+| Sun and sky       | `metron-sky-card`               | The sun path, clouds by hour and day length                             |
+| Day clock         | `metron-clock-card`             | Production and consumption on a 24-hour dial                            |
+| PV strings        | `metron-strings-card`           | Strings against the median with repeating dips                          |
+| Base load         | `metron-baseload-card`          | The night minimum, step changes and what it is made of                  |
+| Nights on battery | `metron-nights-card`            | Evening charge, overnight minimum and night import                      |
+| Load duration     | `metron-duration-card`          | Hours at each load level and phase peaks                                |
+| Normal corridor   | `metron-corridor-card`          | Today against the usual range of the same weekday                       |
+| Solar expansion   | `metron-expansion-card`         | A year model of more panels or a bigger battery                         |
+
+All types are used as `custom:<type>`, e.g. `type: custom:metron-flow-card`.
+
 ### Energy flow — `custom:metron-flow-card`
+
+<img src="docs/images/flow.png" width="420" alt="Energy flow"> <img src="docs/images/flow-off.png" width="420" alt="Energy flow">
 
 Power flows between solar, grid, battery and home as a Sankey diagram. With the grid on it shows
 battery and grid panels; during an outage it switches to battery autonomy with the time left, the
@@ -93,6 +154,8 @@ grid_voltages:
 
 ### Status chips — `custom:metron-status-card`
 
+<img src="docs/images/status.png" width="480" alt="Status chips">
+
 A compact strip of entities. Each chip can show a progress bar, battery segments, phase marks and
 a secondary line.
 
@@ -142,6 +205,8 @@ Card options: `chips` (list), `min_width` (minimum chip width, px, default `104`
 
 ### Tiles — `custom:metron-tile-card`
 
+<img src="docs/images/tile.png" width="480" alt="Tiles">
+
 A grid of tiles using the same item options as the status chips.
 
 ```yaml
@@ -161,6 +226,8 @@ tiles:
 ```
 
 ### Live power — `custom:metron-live-card`
+
+<img src="docs/images/live.png" width="480" alt="Live power">
 
 Bars for every step over the last minutes, the current value and the peak. Signed entities (grid,
 battery) are drawn around a center line.
@@ -185,6 +252,8 @@ Options: `entities` (`entity`, `name`, `color`, `invert`, `max`), `minutes` (`60
 (minutes per bar, `1`), `height` (row height, `36`).
 
 ### Consumers — `custom:metron-devices-card`
+
+<img src="docs/images/devices.png" width="480" alt="Consumers">
 
 Power now and energy today per device, the share of each device, 24 hourly bars and a run state
 (running for, always on, finished at, idle). With a total power or energy sensor the remainder is
@@ -242,6 +311,8 @@ Counters can be daily meters or lifetime totals. The ongoing hour is added from 
 
 ### Energy day — `custom:metron-energy-day-card`
 
+<img src="docs/images/energy-day.png" width="480" alt="Energy day">
+
 Half-hour production above the axis and consumption below it, the solar forecast for the rest of
 the day, where the energy came from and where it went, self-sufficiency, self-consumption and the
 solar peak. Arrows switch days.
@@ -265,6 +336,8 @@ Without power sensors the profile is built from hourly energy.
 
 ### Metrics — `custom:metron-stats-card`
 
+<img src="docs/images/stats.png" width="480" alt="Metrics">
+
 Self-consumption, self-sufficiency and the net grid balance as gauges, with totals and a
 comparison with the same part of the previous period.
 
@@ -277,6 +350,8 @@ Options: `period` (`day`, `week`, `month`, `year`; default `month`), `compare` (
 
 ### Month history — `custom:metron-history-card`
 
+<img src="docs/images/history.png" width="480" alt="Month history">
+
 Daily bars for a month split by source (solar, battery, grid), the average line, the maximum and
 the change against the previous month. `mode: production` splits solar production into self-used,
 battery and export instead.
@@ -285,11 +360,15 @@ Options: `mode` (`consumption` / `production`), `navigation` (`true`), `height` 
 
 ### Year by months — `custom:metron-year-card`
 
+<img src="docs/images/year.png" width="480" alt="Year by months">
+
 Generation and consumption per month for the last year and the net grid balance per month.
 
 Options: `months` (`12`), `height` (`100`).
 
 ### Period comparison — `custom:metron-week-compare-card`
+
+<img src="docs/images/week-compare.png" width="480" alt="Period comparison">
 
 This week until now against the same span of last week, as rows with a diverging bar per metric.
 
@@ -307,6 +386,8 @@ Options: `period` (`day`, `week`, `month`, `year`), `metrics` (any of `generatio
 
 ### Daily calendar — `custom:metron-calendar-card`
 
+<img src="docs/images/calendar.png" width="480" alt="Daily calendar">
+
 A month calendar with a ring per day. Self-sufficiency is colored by level; energy metrics are
 relative to the best day of the month. With `grid_status` days with outages get a mark.
 
@@ -316,6 +397,8 @@ Options: `metric` (`self_sufficiency`, `self_consumption`, `solar`, `home`, `imp
 
 ### Load profile — `custom:metron-profile-card`
 
+<img src="docs/images/profile.png" width="480" alt="Load profile">
+
 Average power by weekday and hour over the last weeks, the peak, the night base load and the
 average daily consumption on weekdays and weekends.
 
@@ -324,6 +407,8 @@ omitted), `weeks` (`4`), `color`, `night_start` / `night_end` (`1` / `5`), `firs
 
 ### Solar year — `custom:metron-solar-year-card`
 
+<img src="docs/images/solar-year.png" width="480" alt="Solar year">
+
 A year of daily solar production as a calendar heatmap with the year total, the best and the
 average day.
 
@@ -331,6 +416,8 @@ Options: `entity` (solar energy counter; energy sensors when omitted), `weeks` (
 (kWh, counts the days above it), `max` (kWh for the full color), `color`, `first_weekday`.
 
 ### Gas — `custom:metron-gas-card`
+
+<img src="docs/images/gas.png" width="480" alt="Gas">
 
 Gas this month with the year-over-year change, today and the daily average, indoor and outdoor
 temperatures, daily bars, specific use per degree-day and the boiler run time today.
@@ -349,6 +436,8 @@ Options: `gas` (gas counter(s); the energy dashboard gas source when omitted), `
 
 ### Heating season — `custom:metron-season-card`
 
+<img src="docs/images/season.png" width="480" alt="Heating season">
+
 Cumulative gas for the heating season by week against last season, a forecast for the rest of
 the season scaled by how this season compares so far, degree-days and weather-adjusted use.
 
@@ -356,6 +445,8 @@ Options: `gas`, `outdoor`, `base_temperature` (`18`), `season_start` (`10-15`), 
 (`04-30`), `energy_dashboard`.
 
 ### Money — `custom:metron-money-card`
+
+<img src="docs/images/money.png" width="480" alt="Money">
 
 The bill of the month so far and its forecast, savings from solar against a bill without it,
 monthly net metering of import and export, and the lines of the bill.
@@ -378,6 +469,8 @@ gas: sensor.gas_meter
 | `note`              | —               | Footnote text.                                               |
 
 ### Tariff zones — `custom:metron-tariff-card`
+
+<img src="docs/images/tariff.png" width="480" alt="Tariff zones">
 
 What the net import of the period would cost on time-of-use plans compared with the single-zone
 price, plus a scenario that charges the battery in the cheap zone. Ukrainian two- and three-zone
@@ -402,12 +495,16 @@ Options: `price`, `plans`, `battery_shift` (`true`), `shift_loss` (%, `10`), `pe
 
 ### Monthly limit — `custom:metron-budget-card`
 
+<img src="docs/images/budget.png" width="480" alt="Monthly limit">
+
 Cumulative import, consumption or gas against a monthly budget, the forecast, the day the limit
 runs out and the daily pace needed to stay within it.
 
 Options: `budget` (number or entity), `metric` (`import`, `consumption`, `gas`), `gas`, `height`.
 
 ### Losses — `custom:metron-losses-card`
+
+<img src="docs/images/losses.png" width="480" alt="Losses">
 
 Energy lost in conversion stages, each defined by an input and an output energy counter, the
 chain efficiency against a reference input and the cost of the losses.
@@ -430,6 +527,8 @@ omitted), `price`, `currency`, `period` (`month`).
 
 ### Solar forecast — `custom:metron-forecast-card`
 
+<img src="docs/images/forecast.png" width="480" alt="Solar forecast">
+
 The solar forecast for the next days (from the energy dashboard forecast or daily forecast
 sensors), the hourly forecast against the typical home load of recent weeks, the window with a
 surplus and the appliances that fit into it.
@@ -449,6 +548,8 @@ Options: `weather` (icons per day), `days` (`3`), `threshold` (surplus, kW, `1.5
 
 ### Forecast accuracy — `custom:metron-forecast-accuracy-card`
 
+<img src="docs/images/forecast-accuracy.png" width="480" alt="Forecast accuracy">
+
 The daily forecast against actual production for the last days with the error per day, the mean
 error, the bias and a correction factor.
 
@@ -463,6 +564,8 @@ sensor forecasts today, `1` when it forecasts tomorrow), `sample_time` (when to 
 `10` / `25` %).
 
 ### Week ahead — `custom:metron-week-ahead-card`
+
+<img src="docs/images/week-ahead.png" width="480" alt="Week ahead">
 
 Seven days of weather with expected solar production, gas use estimated from degree-days and
 planned outages from a calendar.
@@ -482,6 +585,8 @@ marked with ≈.
 
 ### Sun and sky — `custom:metron-sky-card`
 
+<img src="docs/images/sky.png" width="480" alt="Sun and sky">
+
 The sun path for today with sunrise, noon and sunset, cloud cover by hour, day length, sun
 elevation and current solar power against the best value for this hour in the last 30 days.
 
@@ -490,12 +595,16 @@ by default).
 
 ### Day clock — `custom:metron-clock-card`
 
+<img src="docs/images/clock.png" width="480" alt="Day clock">
+
 Hourly solar production (outer ring, forecast for the remaining hours) and home consumption
 (inner ring) on a 24-hour dial with today's totals.
 
 Options: `forecast` (`true`) and the energy sensors.
 
 ### PV strings — `custom:metron-strings-card`
+
+<img src="docs/images/strings.png" width="480" alt="PV strings">
 
 Per-string production today normalized by peak power and compared with the median string, plus
 dips that repeat on most of the recent days at the same time — usually shade.
@@ -514,6 +623,8 @@ Options: `strings` (`entity`, `name`, `peak_power` in kWp), `from` / `to` (windo
 days), `deviation` (flag threshold, `8` %).
 
 ### Base load — `custom:metron-baseload-card`
+
+<img src="docs/images/baseload.png" width="480" alt="Base load">
 
 The night minimum of the house for every day, its median for the last two weeks, a step change
 when the base load moved, what it costs a year and what it is made of when you list the known
@@ -534,6 +645,8 @@ Options: `entity` (home power or energy; home consumption from the energy sensor
 
 ### Nights on battery — `custom:metron-nights-card`
 
+<img src="docs/images/nights.png" width="480" alt="Nights on battery">
+
 For every night: the battery charge in the evening, the lowest charge until the morning and the
 grid import overnight, with how many nights the battery was enough.
 
@@ -548,6 +661,8 @@ Options: `battery_soc` (required), `battery_capacity`, `battery_reserve` (`20`),
 (`17:00`), `morning` (`07:00`), `days` (`30`) and the energy sensors for the import.
 
 ### Load duration — `custom:metron-duration-card`
+
+<img src="docs/images/duration.png" width="480" alt="Load duration">
 
 The hourly load sorted from the highest to the lowest: how many hours the house spends above a
 level, the average, the value 90 % of the time stays below and the peak per phase against a limit.
@@ -568,6 +683,8 @@ Options: `entity`, `threshold` (kW, `5`), `phases`, `phase_limit` (kW per phase)
 
 ### Normal corridor — `custom:metron-corridor-card`
 
+<img src="docs/images/corridor.png" width="480" alt="Normal corridor">
+
 Today by hour against the usual range of the same weekday over the last weeks: the 10–90 %
 corridor, the median, hours outside the corridor and the consumption since midnight against the
 usual one.
@@ -576,6 +693,8 @@ Options: `entity` (power or energy; the live power fills the current hour), `wee
 `high` (percentiles, `10` / `90`), `same_weekday` (`true`).
 
 ### Solar expansion — `custom:metron-expansion-card`
+
+<img src="docs/images/expansion.png" width="480" alt="Solar expansion">
 
 A model of the last twelve months with more panels or a bigger battery: an hourly simulation of
 a typical day per month gives self-sufficiency, import, export and the yearly balance in money.
