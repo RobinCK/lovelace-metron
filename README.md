@@ -221,6 +221,115 @@ Energy today comes from long-term statistics, so lifetime counters and daily met
 Without an energy sensor the energy is integrated from 5-minute power statistics. A `status`
 entity replaces the run state text, `cycle: true` shows when the last run finished.
 
+### Energy sensors for statistics cards
+
+Cards that work with history read **long-term statistics** of energy counters. Every option takes
+one entity or a list. Anything you leave out is taken from the Home Assistant **energy dashboard**
+(`energy_dashboard: false` turns this off), so with a configured energy dashboard these cards work
+without any options.
+
+| Option                     | Description                                                       |
+| -------------------------- | ----------------------------------------------------------------- |
+| `solar_energy`             | Solar production counter(s).                                      |
+| `home_energy`              | Home consumption counter(s). Derived from the balance if omitted. |
+| `grid_import_energy`       | Energy taken from the grid.                                       |
+| `grid_export_energy`       | Energy sent to the grid.                                          |
+| `battery_charge_energy`    | Energy into the battery.                                          |
+| `battery_discharge_energy` | Energy out of the battery.                                        |
+| `energy_dashboard`         | Fill missing sources from the energy dashboard. Default `true`.   |
+
+Counters can be daily meters or lifetime totals. The ongoing hour is added from the live state.
+
+### Energy day — `custom:metron-energy-day-card`
+
+Half-hour production above the axis and consumption below it, the solar forecast for the rest of
+the day, where the energy came from and where it went, self-sufficiency, self-consumption and the
+solar peak. Arrows switch days.
+
+```yaml
+type: custom:metron-energy-day-card
+solar_power: sensor.deye_pv_power
+home_power: sensor.deye_load_power
+```
+
+| Option                  | Default | Description                                                                |
+| ----------------------- | ------- | -------------------------------------------------------------------------- |
+| `solar_power`           | —       | Power sensor for the half-hour profile and the peak (5-minute statistics). |
+| `home_power`            | —       | Power sensor for the consumption profile.                                  |
+| `solar_forecast`        | `auto`  | `auto` uses the energy dashboard forecast, `off` hides it.                 |
+| `solar_forecast_entity` | —       | Sensor with today's forecast in kWh for the summary line.                  |
+| `slot_minutes`          | `30`    | `30` or `60`.                                                              |
+| `navigation`            | `true`  | Day arrows.                                                                |
+
+Without power sensors the profile is built from hourly energy.
+
+### Metrics — `custom:metron-stats-card`
+
+Self-consumption, self-sufficiency and the net grid balance as gauges, with totals and a
+comparison with the same part of the previous period.
+
+```yaml
+type: custom:metron-stats-card
+period: month
+```
+
+Options: `period` (`day`, `week`, `month`, `year`; default `month`), `compare` (`true`).
+
+### Month history — `custom:metron-history-card`
+
+Daily bars for a month split by source (solar, battery, grid), the average line, the maximum and
+the change against the previous month. `mode: production` splits solar production into self-used,
+battery and export instead.
+
+Options: `mode` (`consumption` / `production`), `navigation` (`true`), `height` (`120`).
+
+### Year by months — `custom:metron-year-card`
+
+Generation and consumption per month for the last year and the net grid balance per month.
+
+Options: `months` (`12`), `height` (`100`).
+
+### Period comparison — `custom:metron-week-compare-card`
+
+This week until now against the same span of last week, as rows with a diverging bar per metric.
+
+```yaml
+type: custom:metron-week-compare-card
+period: week
+gas: sensor.gas_meter
+grid_status: binary_sensor.deye_grid_connected
+metrics: [generation, consumption, import, export, self_sufficiency, gas, outage]
+```
+
+Options: `period` (`day`, `week`, `month`, `year`), `metrics` (any of `generation`, `consumption`,
+`import`, `export`, `self_sufficiency`, `self_consumption`, `gas`, `outage`), `gas` (gas counter),
+`grid_status` and `invert_grid_status` (for hours without grid), `scale` (bar scale, %, `60`).
+
+### Daily calendar — `custom:metron-calendar-card`
+
+A month calendar with a ring per day. Self-sufficiency is colored by level; energy metrics are
+relative to the best day of the month. With `grid_status` days with outages get a mark.
+
+Options: `metric` (`self_sufficiency`, `self_consumption`, `solar`, `home`, `import`, `export`),
+`high` / `low` (`70` / `40`), `grid_status`, `invert_grid_status`, `navigation`, `first_weekday`
+(`1` = Monday, `0` = Sunday).
+
+### Load profile — `custom:metron-profile-card`
+
+Average power by weekday and hour over the last weeks, the peak, the night base load and the
+average daily consumption on weekdays and weekends.
+
+Options: `entity` (power sensor or energy counter; home consumption from the energy sensors when
+omitted), `weeks` (`4`), `color`, `night_start` / `night_end` (`1` / `5`), `first_weekday`.
+
+### Solar year — `custom:metron-solar-year-card`
+
+A year of daily solar production as a calendar heatmap with the year total, the best and the
+average day.
+
+Options: `entity` (solar energy counter; energy sensors when omitted), `weeks` (`53`), `good_day`
+(kWh, counts the days above it), `max` (kWh for the full color), `color`, `first_weekday`.
+
 ## Development
 
 ```bash

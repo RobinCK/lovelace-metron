@@ -380,6 +380,108 @@ export const metronStyles = css`
     color: var(--m-ok);
   }
 
+  .nav {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .nav span {
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .nav button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: var(--m-panel);
+    color: var(--m-text);
+    cursor: pointer;
+  }
+
+  .nav button:disabled {
+    color: var(--m-muted);
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .nav svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+  }
+
+  .share-bar {
+    display: flex;
+    gap: 2px;
+    height: 10px;
+    overflow: hidden;
+    border-radius: 5px;
+  }
+
+  .share-bar span {
+    min-width: 2px;
+  }
+
+  .dot-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 12px;
+    font-size: 12px;
+    color: var(--m-text-2);
+  }
+
+  .dot-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .dot-legend i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .dot-legend b {
+    font-family: var(--m-mono);
+    font-weight: 400;
+    color: var(--m-text);
+  }
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .loading {
+    opacity: 0.45;
+    transition: opacity 0.2s;
+  }
+
   .empty {
     padding: 12px 0;
     font-size: 13px;

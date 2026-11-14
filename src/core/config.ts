@@ -150,3 +150,11 @@ export const entityItems = (raw: RawConfig, key: string): EntityItem[] =>
       color: text(item, 'color'),
     };
   });
+
+export const entityIds = (raw: RawConfig, key: string): string[] => {
+  const value = raw[key];
+
+  if (typeof value === 'string') return value.includes('.') ? [value.trim()] : [];
+
+  return list(raw, key, (item) => entity(item, 'entity'));
+};

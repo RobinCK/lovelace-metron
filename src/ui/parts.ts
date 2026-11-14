@@ -154,3 +154,73 @@ export const stateIcon = (
     .icon=${name}
     style=${color ? `color:${color}` : ''}
   ></ha-state-icon>`;
+
+export interface Navigation {
+  readonly label: string;
+  readonly previous: () => void;
+  readonly next: () => void;
+  readonly canNext: boolean;
+  readonly previousLabel: string;
+  readonly nextLabel: string;
+}
+
+export const navigator = (navigation: Navigation): TemplateResult =>
+  html`<div class="nav">
+    <button
+      type="button"
+      aria-label=${navigation.previousLabel}
+      @click=${(event: Event) => {
+        event.stopPropagation();
+        navigation.previous();
+      }}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <span>${navigation.label}</span>
+    <button
+      type="button"
+      aria-label=${navigation.nextLabel}
+      ?disabled=${!navigation.canNext}
+      @click=${(event: Event) => {
+        event.stopPropagation();
+        navigation.next();
+      }}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+    </button>
+  </div>`;
+
+export interface ShareItem {
+  readonly label: string;
+  readonly value: number | undefined;
+  readonly color: string;
+}
+
+export const shareBar = (items: readonly ShareItem[]): TemplateResult | typeof nothing => {
+  const visible = items.filter((item) => (item.value ?? 0) > 0);
+  const sum = visible.reduce((total, item) => total + (item.value ?? 0), 0);
+
+  if (sum <= 0) return nothing;
+
+  return html`<div class="share-bar">
+    ${visible.map(
+      (item) =>
+        html`<span
+          style="width:${(((item.value ?? 0) / sum) * 100).toFixed(2)}%;background:${item.color}"
+        ></span>`,
+    )}
+  </div>`;
+};
+
+export const dotLegend = (
+  items: readonly ShareItem[],
+  format: (value: number | undefined) => string,
+): TemplateResult =>
+  html`<div class="dot-legend">
+    ${items.map(
+      (item) =>
+        html`<span
+          ><i style="background:${item.color}"></i>${item.label} <b>${format(item.value)}</b></span
+        >`,
+    )}
+  </div>`;

@@ -158,3 +158,10 @@ export const intervalsWhere = (
 
   return intervals;
 };
+
+export const overlap = (intervals: readonly Interval[], from: number, to: number): number =>
+  intervals.reduce(
+    (total, interval) =>
+      total + Math.max(0, Math.min(to, interval.to) - Math.max(from, interval.from)),
+    0,
+  );

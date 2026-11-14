@@ -74,12 +74,16 @@ export const isAvailable = (hass: HomeAssistant, entityId: string | undefined): 
 
 const ON_STATES = new Set(['on', 'true', 'home', 'open', 'connected', 'grid on', '1']);
 
+export const stateIsOn = (state: string): boolean | undefined => {
+  if (UNAVAILABLE.has(state)) return undefined;
+
+  return ON_STATES.has(state.toLowerCase());
+};
+
 export const isOn = (hass: HomeAssistant, entityId: string | undefined): boolean | undefined => {
   const entity = entityOf(hass, entityId);
 
-  if (!entity || UNAVAILABLE.has(entity.state)) return undefined;
-
-  return ON_STATES.has(entity.state.toLowerCase());
+  return entity ? stateIsOn(entity.state) : undefined;
 };
 
 export const entityName = (hass: HomeAssistant, entityId: string | undefined): string => {

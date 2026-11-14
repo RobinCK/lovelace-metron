@@ -286,7 +286,11 @@ export const ring = (
 
   return svg`<svg width=${size} height=${size} viewBox="0 0 ${size} ${size}" aria-hidden="true">
     <circle cx=${size / 2} cy=${size / 2} r=${radius} style="fill:none;stroke:var(--m-track)" stroke-width=${stroke}></circle>
-    <circle cx=${size / 2} cy=${size / 2} r=${radius} style="fill:none;stroke:${color}" stroke-width=${stroke} stroke-linecap="round" stroke-dasharray="${(circumference * value).toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 ${size / 2} ${size / 2})"></circle>
+    ${
+      value > 0
+        ? svg`<circle cx=${size / 2} cy=${size / 2} r=${radius} style="fill:none;stroke:${color}" stroke-width=${stroke} stroke-linecap="round" stroke-dasharray="${(circumference * value).toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 ${size / 2} ${size / 2})"></circle>`
+        : nothing
+    }
   </svg>`;
 };
 
@@ -326,3 +330,60 @@ export const strip = (
           ></span>`
     }
   </div>`;
+
+export interface GaugeOptions {
+  readonly size?: number;
+  readonly stroke?: number;
+  readonly sweep?: number;
+  readonly origin?: number;
+  readonly marker?: boolean;
+}
+
+const polar = (cx: number, cy: number, radius: number, degrees: number): [number, number] => {
+  const radians = (degrees * Math.PI) / 180;
+
+  return [cx + radius * Math.cos(radians), cy - radius * Math.sin(radians)];
+};
+
+export const gauge = (
+  fraction: number | undefined,
+  color: string,
+  options: GaugeOptions = {},
+): SVGTemplateResult => {
+  const size = options.size ?? 120;
+  const stroke = options.stroke ?? 10;
+  const sweep = options.sweep ?? 240;
+  const origin = options.origin ?? 0;
+  const radius = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const startAngle = 90 + sweep / 2;
+  const [x0, y0] = polar(cx, cy, radius, startAngle);
+  const [x1, y1] = polar(cx, cy, radius, startAngle - sweep);
+  const length = (radius * sweep * Math.PI) / 180;
+  const value = Math.min(1, Math.max(0, fraction ?? origin));
+  const from = Math.min(origin, value);
+  const segment = Math.abs(value - origin) * length;
+  const path = `M${x0.toFixed(2)},${y0.toFixed(2)} A${radius},${radius} 0 1 1 ${x1.toFixed(2)},${y1.toFixed(2)}`;
+  const [mx, my] = polar(cx, cy, radius, startAngle - value * sweep);
+  const height = cy + Math.sin(((sweep / 2 - 90) * Math.PI) / 180) * radius + stroke / 2 + 1;
+
+  return svg`<svg width=${size} height=${height.toFixed(1)} viewBox="0 0 ${size} ${height.toFixed(1)}" aria-hidden="true">
+    <path d=${path} style="fill:none;stroke:var(--m-track)" stroke-width=${stroke} stroke-linecap="round"></path>
+    ${
+      fraction === undefined
+        ? nothing
+        : svg`<path d=${path} style="fill:none;stroke:${color}" stroke-width=${stroke} stroke-linecap="round" stroke-dasharray="${segment.toFixed(2)} ${(length * 2).toFixed(2)}" stroke-dashoffset=${(-from * length).toFixed(2)}></path>`
+    }
+    ${
+      origin > 0
+        ? svg`<line x1=${cx} x2=${cx} y1=${cy - radius - stroke / 2 - 3} y2=${cy - radius + stroke / 2 + 1} style="stroke:var(--m-text)" stroke-width="2" stroke-linecap="round"></line>`
+        : nothing
+    }
+    ${
+      options.marker && fraction !== undefined
+        ? svg`<circle cx=${mx.toFixed(2)} cy=${my.toFixed(2)} r=${stroke / 2 + 1} style="fill:var(--m-bg);stroke:${color}" stroke-width="3"></circle>`
+        : nothing
+    }
+  </svg>`;
+};

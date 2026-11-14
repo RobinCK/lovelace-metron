@@ -133,12 +133,13 @@ export const formatEnergy = (
   kwh: number | undefined,
   locale: FormatLocale,
   digits?: number,
+  megawattFrom = 10_000,
 ): Formatted => {
   if (kwh === undefined || !Number.isFinite(kwh)) {
     return { value: DASH, unit: unitText('kWh', locale) };
   }
 
-  if (Math.abs(kwh) >= 10_000) {
+  if (Math.abs(kwh) >= megawattFrom) {
     return { value: formatNumber(kwh / 1000, digits ?? 2, locale), unit: unitText('MWh', locale) };
   }
 
