@@ -91,6 +91,136 @@ grid_voltages:
 | `animate`             | `true`    | Animated dots along the flows.                                               |
 | `show_panels`         | `true`    | Battery and grid panels below the diagram.                                   |
 
+### Status chips — `custom:metron-status-card`
+
+A compact strip of entities. Each chip can show a progress bar, battery segments, phase marks and
+a secondary line.
+
+```yaml
+type: custom:metron-status-card
+chips:
+  - entity: sensor.deye_pv_power
+    name: Solar
+    color: solar
+    progress: sensor.deye_day_pv_energy
+    progress_max: sensor.solar_forecast_today
+    secondary: '{percent} % of forecast'
+  - entity: sensor.deye_load_power
+    color: home
+  - entity: sensor.deye_battery_soc
+    color: battery
+    power: sensor.deye_battery_power
+  - entity: sensor.deye_grid_power
+    color: grid
+    direction: true
+    phases:
+      - binary_sensor.grid_l1
+      - binary_sensor.grid_l2
+      - binary_sensor.grid_l3
+```
+
+Chip and tile options:
+
+| Option            | Description                                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| `entity`          | Main entity (required).                                                                   |
+| `name` / `icon`   | Defaults to the entity name and icon.                                                     |
+| `color`           | `solar`, `home`, `battery`, `grid`, `gas`, `warn`, `cold`, `ok` or any CSS color.         |
+| `invert`          | Flip the sign of the value.                                                               |
+| `digits`          | Fixed number of decimals.                                                                 |
+| `secondary`       | Entity (shown as value) or text. `{percent}` is replaced with the progress percentage.    |
+| `secondary_label` | Prefix for an entity secondary line, e.g. `outside`.                                      |
+| `power`           | Battery power entity: shows `+2.46 kW · charging` (positive = discharge, `invert_power`). |
+| `direction`       | Treat the value as signed grid power: shows the absolute value and import / export.       |
+| `progress`        | Entity or number. Alone it is a percentage; with `progress_max` it is divided by the max. |
+| `progress_max`    | Entity or number used as the progress maximum.                                            |
+| `progress_style`  | `bar` or `segments` (battery entities default to segments).                               |
+| `phases`          | Phase entities: binary sensors or voltages, shown as colored L1 L2 L3.                    |
+| `sparkline`       | Tiles only: 24 hourly bars for today from long-term statistics.                           |
+
+Card options: `chips` (list), `min_width` (minimum chip width, px, default `104`).
+
+### Tiles — `custom:metron-tile-card`
+
+A grid of tiles using the same item options as the status chips.
+
+```yaml
+type: custom:metron-tile-card
+title: Energy
+show_time: true
+columns: 2
+tiles:
+  - entity: sensor.deye_pv_power
+    color: solar
+    secondary: sensor.deye_day_pv_energy
+    sparkline: true
+  - entity: sensor.indoor_temperature
+    color: cold
+    secondary: sensor.outdoor_temperature
+    secondary_label: outside
+```
+
+### Live power — `custom:metron-live-card`
+
+Bars for every step over the last minutes, the current value and the peak. Signed entities (grid,
+battery) are drawn around a center line.
+
+```yaml
+type: custom:metron-live-card
+minutes: 60
+step: 1
+entities:
+  - entity: sensor.deye_pv_power
+    color: solar
+  - entity: sensor.deye_load_power
+    color: home
+  - entity: sensor.deye_battery_power
+    color: battery
+    invert: true
+  - entity: sensor.deye_grid_power
+    color: grid
+```
+
+Options: `entities` (`entity`, `name`, `color`, `invert`, `max`), `minutes` (`60`), `step`
+(minutes per bar, `1`), `height` (row height, `36`).
+
+### Consumers — `custom:metron-devices-card`
+
+Power now and energy today per device, the share of each device, 24 hourly bars and a run state
+(running for, always on, finished at, idle). With a total power or energy sensor the remainder is
+shown as an unaccounted row.
+
+```yaml
+type: custom:metron-devices-card
+total_power: sensor.deye_load_power
+total_energy: sensor.deye_day_load_energy
+devices:
+  - name: Water heater
+    power: sensor.boiler_power
+    energy: sensor.boiler_energy
+    icon: mdi:water-boiler
+  - name: Washing machine
+    power: sensor.washer_power
+    cycle: true
+  - name: Network
+    power: sensor.network_power
+    note: UniFi, NVR
+```
+
+| Option             | Default  | Description                                                                         |
+| ------------------ | -------- | ----------------------------------------------------------------------------------- |
+| `devices`          | —        | `name`, `power`, `energy`, `icon`, `color`, `threshold`, `status`, `note`, `cycle`. |
+| `total_power`      | —        | House power sensor for the header and the unaccounted row.                          |
+| `total_energy`     | —        | House energy sensor (any counter) for the unaccounted row.                          |
+| `threshold`        | `10`     | Power above which a device counts as running, W.                                    |
+| `sort`             | `energy` | `energy`, `power` or `none`.                                                        |
+| `sparkline`        | `true`   | Hourly bars for today.                                                              |
+| `show_unaccounted` | `true`   | Show the remainder when a total is configured.                                      |
+
+Energy today comes from long-term statistics, so lifetime counters and daily meters both work.
+Without an energy sensor the energy is integrated from 5-minute power statistics. A `status`
+entity replaces the run state text, `cycle: true` shows when the last run finished.
+
 ## Development
 
 ```bash

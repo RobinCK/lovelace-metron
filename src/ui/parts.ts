@@ -1,5 +1,6 @@
 import { html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
+import type { HomeAssistant } from '../types/ha';
 
 export type Tone =
   'solar' | 'home' | 'battery' | 'grid' | 'gas' | 'warn' | 'ok' | 'cold' | 'muted' | 'text';
@@ -109,3 +110,47 @@ export const valueUnit = (value: string, unit: string, className = 'xl'): Templa
   html`<span class="value-unit"
     ><span class=${className}>${value}</span><span class="unit"> ${unit}</span></span
   >`;
+
+const SEMANTIC_COLORS: Readonly<Record<string, string>> = {
+  solar: 'var(--m-solar)',
+  home: 'var(--m-home)',
+  battery: 'var(--m-battery)',
+  grid: 'var(--m-grid)',
+  gas: 'var(--m-gas)',
+  warn: 'var(--m-warn)',
+  warning: 'var(--m-warn)',
+  cold: 'var(--m-cold)',
+  ok: 'var(--m-ok)',
+  text: 'var(--m-text)',
+  muted: 'var(--m-muted)',
+};
+
+export const PALETTE: readonly string[] = [
+  'var(--m-solar)',
+  'var(--m-home)',
+  'var(--m-battery)',
+  'var(--m-grid)',
+  'var(--m-gas)',
+  'var(--m-cold)',
+  'var(--m-warn)',
+  'var(--m-ok)',
+];
+
+export const colorOf = (color: string | undefined, index = 0): string => {
+  if (color) return SEMANTIC_COLORS[color] ?? color;
+
+  return PALETTE[index % PALETTE.length] ?? 'var(--m-text-2)';
+};
+
+export const stateIcon = (
+  hass: HomeAssistant,
+  entityId: string | undefined,
+  name: string | undefined,
+  color?: string,
+): TemplateResult =>
+  html`<ha-state-icon
+    .hass=${hass}
+    .stateObj=${entityId ? hass.states[entityId] : undefined}
+    .icon=${name}
+    style=${color ? `color:${color}` : ''}
+  ></ha-state-icon>`;

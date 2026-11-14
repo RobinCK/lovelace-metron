@@ -77,6 +77,14 @@ export const UK: Readonly<Partial<Record<TranslationKey, string>>> = {
   'editor.invert_grid_status': 'Сенсор показує відключення',
   'editor.section_battery': 'АКБ',
   'editor.section_details': 'Деталі',
+  'editor.min_width': 'Мінімальна ширина чипа',
+  'editor.tiles': 'Плитки',
+  'editor.columns': 'Колонки',
+  'editor.show_time': 'Показувати час',
+  'editor.entities': 'Сутності',
+  'editor.step': 'Крок',
+  'editor.sort': 'Сортування',
+  'editor.show_unaccounted': 'Показувати невраховане',
 
   'flow.title': 'Енергопотоки',
   'flow.solar': 'Сонце',
@@ -114,17 +122,21 @@ export const UK: Readonly<Partial<Record<TranslationKey, string>>> = {
 
   'status.title': 'Статус',
 
+  'items.today': 'сьогодні',
+
   'live.title': 'Потужність · {minutes} хв',
+  'live.status': 'наживо · крок {step} хв',
+  'live.ago': '−{minutes} хв',
+  'live.max': 'макс {value}',
 
-  'tile.today': 'сьогодні {value} {unit}',
-
-  'devices.title': 'Споживачі',
+  'devices.title': 'Споживачі · сьогодні',
   'devices.device': 'Пристрій',
-  'devices.power': 'кВт',
-  'devices.energy': 'кВт·год',
+  'devices.now': 'зараз',
+  'devices.on': 'увімкнено',
   'devices.running': 'працює {duration}',
+  'devices.always_on': 'постійно',
+  'devices.finished': 'завершив о {time}',
   'devices.idle': 'очікування',
   'devices.unaccounted': 'Невраховане',
-  'devices.unaccounted_hint': 'різниця із загальним',
-  'devices.now': 'зараз {value} {unit}',
+  'devices.unaccounted_hint': 'різниця з вводом будинку',
 };

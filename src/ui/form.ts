@@ -100,6 +100,27 @@ export const select = (name: string, options: readonly string[]): SelectorField 
 
 export const object = (name: string): SelectorField => ({ name, selector: { object: {} } });
 
+export interface ListField {
+  readonly selector: Readonly<Record<string, unknown>>;
+  readonly required?: boolean;
+}
+
+export const ITEM_FIELDS: Readonly<Record<string, ListField>> = {
+  entity: { selector: { entity: {} }, required: true },
+  name: { selector: { text: {} } },
+  icon: { selector: { icon: {} } },
+  color: { selector: { text: {} } },
+};
+
+export const list = (
+  name: string,
+  fields: Readonly<Record<string, ListField>> = ITEM_FIELDS,
+  labelField = 'entity',
+): SelectorField => ({
+  name,
+  selector: { object: { multiple: true, label_field: labelField, fields } },
+});
+
 export const time = (name: string): SelectorField => ({ name, selector: { time: {} } });
 
 export const grid = (...schema: FormField[]): GridField => ({ type: 'grid', name: '', schema });

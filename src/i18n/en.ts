@@ -76,6 +76,14 @@ export const EN = {
   'editor.invert_grid_status': 'Grid sensor reports an outage',
   'editor.section_battery': 'Battery',
   'editor.section_details': 'Details',
+  'editor.min_width': 'Minimum chip width',
+  'editor.tiles': 'Tiles',
+  'editor.columns': 'Columns',
+  'editor.show_time': 'Show time',
+  'editor.entities': 'Entities',
+  'editor.step': 'Step',
+  'editor.sort': 'Sort by',
+  'editor.show_unaccounted': 'Show unaccounted',
 
   'flow.title': 'Energy flow',
   'flow.solar': 'Solar',
@@ -113,19 +121,23 @@ export const EN = {
 
   'status.title': 'Status',
 
+  'items.today': 'today',
+
   'live.title': 'Power · {minutes} min',
+  'live.status': 'live · step {step} min',
+  'live.ago': '−{minutes} min',
+  'live.max': 'max {value}',
 
-  'tile.today': 'today {value} {unit}',
-
-  'devices.title': 'Consumers',
+  'devices.title': 'Consumers · today',
   'devices.device': 'Device',
-  'devices.power': 'kW',
-  'devices.energy': 'kWh',
+  'devices.now': 'now',
+  'devices.on': 'on',
   'devices.running': 'running {duration}',
+  'devices.always_on': 'always on',
+  'devices.finished': 'finished at {time}',
   'devices.idle': 'idle',
   'devices.unaccounted': 'Unaccounted',
   'devices.unaccounted_hint': 'difference with the total',
-  'devices.now': 'now {value} {unit}',
 } as const satisfies Readonly<Record<string, string>>;
 
 export type TranslationKey = keyof typeof EN;

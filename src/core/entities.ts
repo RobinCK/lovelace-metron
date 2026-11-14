@@ -1,4 +1,6 @@
 import type { HassEntity, HomeAssistant } from '../types/ha';
+import { autoDigits, formatEnergy, formatNumber, formatPower, unitText } from './format';
+import type { FormatLocale, Formatted } from './format';
 
 export type Quantity = 'power' | 'energy' | 'volume' | 'temperature' | 'percent' | 'raw';
 
@@ -92,3 +94,64 @@ export const attribute = <T>(
   entityId: string | undefined,
   key: string,
 ): T | undefined => entityOf(hass, entityId)?.attributes[key] as T | undefined;
+
+export const deviceClass = (
+  hass: HomeAssistant,
+  entityId: string | undefined,
+): string | undefined => attribute<string>(hass, entityId, 'device_class');
+
+export const isCounter = (hass: HomeAssistant, entityId: string | undefined): boolean => {
+  const stateClass = attribute<string>(hass, entityId, 'state_class');
+
+  return stateClass === 'total' || stateClass === 'total_increasing';
+};
+
+const stateDecimals = (state: string | undefined): number => {
+  const match = /\.(\d+)$/.exec(state ?? '');
+
+  return match?.[1]?.length ?? 0;
+};
+
+export const formatValue = (
+  hass: HomeAssistant,
+  entityId: string | undefined,
+  value: number | undefined,
+  locale: FormatLocale,
+  digits?: number,
+): Formatted => {
+  const entity = entityOf(hass, entityId);
+  const unit = entity?.attributes.unit_of_measurement;
+  const kind = entity?.attributes.device_class;
+
+  if (kind === 'power' && digits === undefined) return formatPower(value, locale);
+  if (kind === 'energy' && digits === undefined) return formatEnergy(value, locale);
+
+  const precision = digits ?? Math.min(autoDigits(value ?? 0), stateDecimals(entity?.state));
+
+  return {
+    value: formatNumber(value, unit === '%' && digits === undefined ? 0 : precision, locale),
+    unit: typeof unit === 'string' ? unitText(unit, locale) : '',
+  };
+};
+
+export const formatEntity = (
+  hass: HomeAssistant,
+  entityId: string | undefined,
+  locale: FormatLocale,
+  digits?: number,
+  invert = false,
+): Formatted => {
+  const entity = entityOf(hass, entityId);
+
+  if (!entity) return { value: '—', unit: '' };
+
+  const kind = entity.attributes.device_class;
+  const quantity: Quantity = kind === 'power' ? 'power' : kind === 'energy' ? 'energy' : 'raw';
+  const value = readNumber(hass, entityId, quantity);
+
+  if (value === undefined) {
+    return { value: hass.formatEntityState?.(entity) ?? entity.state, unit: '' };
+  }
+
+  return formatValue(hass, entityId, invert ? -value : value, locale, digits);
+};

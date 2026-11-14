@@ -55,6 +55,7 @@ export interface HomeAssistant {
   readonly themes?: HassThemes;
   readonly config?: HassConfig;
   readonly connection?: HassConnection;
+  formatEntityState?: (stateObj: HassEntity, state?: string) => string;
   callWS<T>(message: Readonly<Record<string, unknown>>): Promise<T>;
   callService(
     domain: string,
