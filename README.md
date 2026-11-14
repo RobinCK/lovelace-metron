@@ -31,17 +31,29 @@ One resource, one look, every card configurable from the visual editor or YAML.
 
 ## Installation
 
-### HACS
+### HACS / Marketplace (recommended)
 
-1. Open HACS → three dots → **Custom repositories**.
-2. Add `https://github.com/RobinCK/lovelace-metron` with type **Dashboard**.
-3. Install **Metron** and reload the browser.
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=RobinCK&repository=lovelace-metron&category=plugin)
+
+The button opens the repository in HACS, or in the Marketplace on Home Assistant 2026.11 and newer.
+Or add it manually:
+
+- **Home Assistant 2026.11 and newer:** open **Settings → Marketplace**, choose **Add from link**,
+  enter `RobinCK/lovelace-metron`, open **Metron** and click **Install**. The first time the
+  Marketplace asks to connect GitHub.
+- **HACS:** open the menu in the top right corner, choose **Custom repositories**, add
+  `https://github.com/RobinCK/lovelace-metron` with the type **Dashboard**, then search for
+  **Metron** and click **Download**.
+
+Reload the browser page afterwards (clear the cache if the cards are not found). The dashboard
+resource is registered automatically.
 
 ### Manual
 
-1. Download `metron.js` from the latest release.
-2. Copy it to `config/www/metron.js`.
-3. Add a dashboard resource `/local/metron.js` with type **JavaScript module**.
+1. Download `metron.js` from the [latest release](https://github.com/RobinCK/lovelace-metron/releases/latest).
+2. Copy it to `<config>/www/metron.js`.
+3. Go to **Settings → Dashboards → ⋮ → Resources** and add `/local/metron.js` with the type
+   **JavaScript module**.
 
 ## Common options
 
