@@ -66,12 +66,6 @@ export const readNumber = (
   return convert(value, quantity, entity.attributes.unit_of_measurement);
 };
 
-export const isAvailable = (hass: HomeAssistant, entityId: string | undefined): boolean => {
-  const entity = entityOf(hass, entityId);
-
-  return entity !== undefined && !UNAVAILABLE.has(entity.state);
-};
-
 const ON_STATES = new Set(['on', 'true', 'home', 'open', 'connected', 'grid on', '1']);
 
 export const stateIsOn = (state: string): boolean | undefined => {

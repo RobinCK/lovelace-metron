@@ -16,14 +16,6 @@ export interface PeriodRange {
   readonly previousEnd: number;
 }
 
-const nextStart = (kind: PeriodKind, start: number): number => {
-  if (kind === 'day') return addDays(start, 1);
-  if (kind === 'week') return addDays(start, 7);
-  if (kind === 'month') return addMonths(start, 1);
-
-  return addMonths(start, 12);
-};
-
 const previousStartOf = (kind: PeriodKind, start: number): number => {
   if (kind === 'day') return addDays(start, -1);
   if (kind === 'week') return addDays(start, -7);
@@ -52,5 +44,3 @@ export const periodToDate = (kind: PeriodKind, now: number, firstWeekday = 1): P
     previousEnd: Math.min(start, previousStart + elapsed),
   };
 };
-
-export const periodEnd = nextStart;

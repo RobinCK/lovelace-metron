@@ -2,12 +2,6 @@ import { median } from '../../core/math';
 
 export type Grid = readonly (readonly (number | undefined)[])[];
 
-export const normalize = (
-  values: readonly (number | undefined)[],
-  kwp: number,
-): (number | undefined)[] =>
-  values.map((value) => (value === undefined || kwp <= 0 ? undefined : value / kwp));
-
 export const yieldDeviation = (yields: readonly number[], kwps: readonly number[]): number[] => {
   const specific = yields.map((value, index) => value / (kwps[index] || 1));
   const middle = median(specific) ?? 0;

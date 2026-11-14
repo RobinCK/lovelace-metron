@@ -22,28 +22,6 @@ export const quantile = (values: readonly number[], q: number): number | undefin
 
 export const median = (values: readonly number[]): number | undefined => quantile(values, 0.5);
 
-export interface Regression {
-  readonly slope: number;
-  readonly intercept: number;
-}
-
-export const linearRegression = (
-  points: readonly (readonly [number, number])[],
-): Regression | undefined => {
-  if (points.length < 2) return undefined;
-
-  const mx = sum(points.map(([x]) => x)) / points.length;
-  const my = sum(points.map(([, y]) => y)) / points.length;
-  const covariance = sum(points.map(([x, y]) => (x - mx) * (y - my)));
-  const variance = sum(points.map(([x]) => (x - mx) ** 2));
-
-  if (variance === 0) return undefined;
-
-  const slope = covariance / variance;
-
-  return { slope, intercept: my - slope * mx };
-};
-
 const NICE_STEPS: readonly number[] = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
 
 export const niceMax = (value: number): number => {
@@ -54,6 +32,3 @@ export const niceMax = (value: number): number => {
 
   return step * magnitude;
 };
-
-export const isNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);

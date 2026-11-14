@@ -85,17 +85,6 @@ export const axis = (ticks: readonly Tick[]): TemplateResult =>
     })}
   </div>`;
 
-export const bigValue = (value: string, unit: string, color?: string): TemplateResult =>
-  html`<span
-    ><span class="big" style=${color ? `color:${color}` : ''}>${value}</span
-    ><span class="unit"> ${unit}</span></span
-  >`;
-
-export const sideRow = (label: string, value: string, unit = ''): TemplateResult =>
-  html`<div class="side-row">
-    <span>${label}</span><span><b>${value}</b>${unit ? ` ${unit}` : ''}</span>
-  </div>`;
-
 export const empty = (text: string): TemplateResult => html`<div class="empty">${text}</div>`;
 
 export const track = (fraction: number, color: string): TemplateResult =>
@@ -105,11 +94,6 @@ export const track = (fraction: number, color: string): TemplateResult =>
 
 export const icon = (name: string | undefined, color?: string): TemplateResult | typeof nothing =>
   name ? html`<ha-icon .icon=${name} style=${color ? `color:${color}` : ''}></ha-icon>` : nothing;
-
-export const valueUnit = (value: string, unit: string, className = 'xl'): TemplateResult =>
-  html`<span class="value-unit"
-    ><span class=${className}>${value}</span><span class="unit"> ${unit}</span></span
-  >`;
 
 const SEMANTIC_COLORS: Readonly<Record<string, string>> = {
   solar: 'var(--m-solar)',

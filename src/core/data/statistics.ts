@@ -66,17 +66,23 @@ export const changeOf: RowValue = (row) => row.change;
 export const meanOf: RowValue = (row) => row.mean;
 export const minOf: RowValue = (row) => row.min ?? row.mean;
 export const maxOf: RowValue = (row) => row.max ?? row.mean;
-export const stateOf: RowValue = (row) => row.state ?? row.mean;
+const bucketIndex = (starts: readonly number[], time: number): number => {
+  let low = 0;
+  let high = starts.length - 1;
+  let found = -1;
 
-export const valueAt = (
-  rows: readonly StatisticRow[] | undefined,
-  time: number,
-  pick: RowValue,
-): number | undefined => {
-  const row = rows?.find((candidate) => candidate.start <= time && time < candidate.end);
-  const value = row ? pick(row) : undefined;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
 
-  return value ?? undefined;
+    if ((starts[middle] ?? Number.POSITIVE_INFINITY) <= time) {
+      found = middle;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+
+  return found;
 };
 
 export const bucketize = (
@@ -93,9 +99,7 @@ export const bucketize = (
 
     if (value === null || value === undefined || row.start >= end) continue;
 
-    const index = starts.findIndex(
-      (start, i) => row.start >= start && row.start < (starts[i + 1] ?? end),
-    );
+    const index = bucketIndex(starts, row.start);
 
     if (index >= 0) buckets[index]?.push(value);
   }

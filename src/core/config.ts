@@ -15,14 +15,6 @@ export const entity = (raw: RawConfig, key: string): string | undefined => {
   return value?.includes('.') ? value : undefined;
 };
 
-export const requiredEntity = (raw: RawConfig, key: string): string => {
-  const value = entity(raw, key);
-
-  if (!value) throw new Error(`Option "${key}" must be an entity id`);
-
-  return value;
-};
-
 export const number = (
   raw: RawConfig,
   key: string,
@@ -65,12 +57,6 @@ export const oneOf = <T extends string>(
     : fallback;
 };
 
-export const record = (raw: RawConfig, key: string): RawConfig => {
-  const value = raw[key];
-
-  return isRecord(value) ? value : {};
-};
-
 export const stringRecord = (
   raw: RawConfig,
   key: string,
@@ -104,18 +90,6 @@ export const list = <T>(
 
     return mapped === undefined ? [] : [mapped];
   });
-};
-
-export const numberList = (raw: RawConfig, key: string, fallback: readonly number[]): number[] => {
-  const value = raw[key];
-
-  if (!Array.isArray(value)) return [...fallback];
-
-  const numbers = value.filter(
-    (item): item is number => typeof item === 'number' && Number.isFinite(item),
-  );
-
-  return numbers.length > 0 ? numbers : [...fallback];
 };
 
 export const base = (raw: RawConfig): BaseConfig => {
