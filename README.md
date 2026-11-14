@@ -428,6 +428,91 @@ stages:
 Options: `stages` (`name`, `input`, `output`, `color`), `input` (reference input; solar energy when
 omitted), `price`, `currency`, `period` (`month`).
 
+### Solar forecast — `custom:metron-forecast-card`
+
+The solar forecast for the next days (from the energy dashboard forecast or daily forecast
+sensors), the hourly forecast against the typical home load of recent weeks, the window with a
+surplus and the appliances that fit into it.
+
+```yaml
+type: custom:metron-forecast-card
+weather: weather.home
+threshold: 1.5
+appliances:
+  - { name: Water heater, power: 2000, icon: mdi:water-boiler }
+  - { name: Washing machine, power: 1900, icon: mdi:washing-machine }
+```
+
+Options: `weather` (icons per day), `days` (`3`), `threshold` (surplus, kW, `1.5`), `history_days`
+(typical load, `14`), `forecast_entities` (daily totals: today, tomorrow, …), `appliances` (`name`,
+`power` in W, `icon`). Hourly bars need the energy dashboard solar forecast.
+
+### Forecast accuracy — `custom:metron-forecast-accuracy-card`
+
+The daily forecast against actual production for the last days with the error per day, the mean
+error, the bias and a correction factor.
+
+```yaml
+type: custom:metron-forecast-accuracy-card
+forecast: sensor.energy_production_today
+```
+
+Options: `forecast` (required; a sensor with the forecast for the day), `offset` (`0` when the
+sensor forecasts today, `1` when it forecasts tomorrow), `sample_time` (when to read the forecast,
+`06:00`, or `21:00` the day before with `offset: 1`), `days` (`14`), `good` / `fair` (error levels,
+`10` / `25` %).
+
+### Week ahead — `custom:metron-week-ahead-card`
+
+Seven days of weather with expected solar production, gas use estimated from degree-days and
+planned outages from a calendar.
+
+```yaml
+type: custom:metron-week-ahead-card
+weather: weather.home
+gas: sensor.gas_meter
+outdoor: sensor.outdoor_temperature
+outage_calendar: calendar.outages
+```
+
+Options: `weather` (required), `days` (`7`), `clear_day` (kWh on a clear day; the best day of the
+last 30 days by default), `gas`, `outdoor`, `base_temperature`, `gas_price`, `currency`,
+`outage_calendar`. Days without a solar forecast are estimated from the weather condition and
+marked with ≈.
+
+### Sun and sky — `custom:metron-sky-card`
+
+The sun path for today with sunrise, noon and sunset, cloud cover by hour, day length, sun
+elevation and current solar power against the best value for this hour in the last 30 days.
+
+Options: `weather` (cloud cover), `solar_power`, `latitude` / `longitude` (Home Assistant location
+by default).
+
+### Day clock — `custom:metron-clock-card`
+
+Hourly solar production (outer ring, forecast for the remaining hours) and home consumption
+(inner ring) on a 24-hour dial with today's totals.
+
+Options: `forecast` (`true`) and the energy sensors.
+
+### PV strings — `custom:metron-strings-card`
+
+Per-string production today normalized by peak power and compared with the median string, plus
+dips that repeat on most of the recent days at the same time — usually shade.
+
+```yaml
+type: custom:metron-strings-card
+strings:
+  - { entity: sensor.deye_master_pv1_power, name: M · PV1, peak_power: 5.6 }
+  - { entity: sensor.deye_master_pv2_power, name: M · PV2, peak_power: 5.6 }
+  - { entity: sensor.deye_slave_pv1_power, name: S · PV1, peak_power: 5.6 }
+  - { entity: sensor.deye_slave_pv2_power, name: S · PV2, peak_power: 5.6 }
+```
+
+Options: `strings` (`entity`, `name`, `peak_power` in kWp), `from` / `to` (window, auto by default),
+`dip` (% below the median, `25`), `days` (`7`, up to 9 because 5-minute statistics are kept for 10
+days), `deviation` (flag threshold, `8` %).
+
 ## Development
 
 ```bash

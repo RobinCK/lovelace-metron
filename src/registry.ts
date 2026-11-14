@@ -1,20 +1,26 @@
 import { MetronBudgetCard } from './cards/budget/budget-card';
 import { MetronCalendarCard } from './cards/calendar/calendar-card';
+import { MetronClockCard } from './cards/clock/clock-card';
 import { MetronDevicesCard } from './cards/devices/devices-card';
 import { MetronEnergyDayCard } from './cards/energy-day/energy-day-card';
 import { MetronFlowCard } from './cards/flow/flow-card';
+import { MetronForecastAccuracyCard } from './cards/forecast-accuracy/forecast-accuracy-card';
+import { MetronForecastCard } from './cards/forecast/forecast-card';
 import { MetronGasCard } from './cards/gas/gas-card';
 import { MetronHistoryCard } from './cards/history/history-card';
-import { MetronStatsCard } from './cards/stats/stats-card';
 import { MetronLiveCard } from './cards/live/live-card';
 import { MetronLossesCard } from './cards/losses/losses-card';
 import { MetronMoneyCard } from './cards/money/money-card';
 import { MetronProfileCard } from './cards/profile/profile-card';
 import { MetronSeasonCard } from './cards/season/season-card';
+import { MetronSkyCard } from './cards/sky/sky-card';
 import { MetronSolarYearCard } from './cards/solar-year/solar-year-card';
-import { MetronTariffCard } from './cards/tariff/tariff-card';
+import { MetronStatsCard } from './cards/stats/stats-card';
 import { MetronStatusCard } from './cards/status/status-card';
+import { MetronStringsCard } from './cards/strings/strings-card';
+import { MetronTariffCard } from './cards/tariff/tariff-card';
 import { MetronTileCard } from './cards/tile/tile-card';
+import { MetronWeekAheadCard } from './cards/week-ahead/week-ahead-card';
 import { MetronWeekCompareCard } from './cards/week-compare/week-compare-card';
 import { MetronYearCard } from './cards/year/year-card';
 
@@ -149,5 +155,45 @@ export const CARDS: readonly CardDefinition[] = [
     name: 'Metron · Losses',
     description:
       'Energy lost in conversion stages such as stabilizers, inverters and battery cycles.',
+  },
+  {
+    type: 'metron-forecast-card',
+    element: MetronForecastCard,
+    name: 'Metron · Solar forecast',
+    description: 'Solar forecast for the next days with the typical load and the surplus window.',
+  },
+  {
+    type: 'metron-forecast-accuracy-card',
+    element: MetronForecastAccuracyCard,
+    name: 'Metron · Forecast accuracy',
+    description:
+      'Daily solar forecast against actual production with the mean error, bias and correction.',
+  },
+  {
+    type: 'metron-week-ahead-card',
+    element: MetronWeekAheadCard,
+    name: 'Metron · Week ahead',
+    description: 'Seven days of weather with expected solar, gas use and planned outages.',
+  },
+  {
+    type: 'metron-sky-card',
+    element: MetronSkyCard,
+    name: 'Metron · Sun and sky',
+    description:
+      'The sun path for today, cloud cover by hour, day length and solar output against the best hour.',
+  },
+  {
+    type: 'metron-clock-card',
+    element: MetronClockCard,
+    name: 'Metron · Day clock',
+    description:
+      'Hourly solar production and home consumption around a 24-hour dial with the forecast.',
+  },
+  {
+    type: 'metron-strings-card',
+    element: MetronStringsCard,
+    name: 'Metron · PV strings',
+    description:
+      'Per-string production today against the median, with repeating dips that hint at shade.',
   },
 ];

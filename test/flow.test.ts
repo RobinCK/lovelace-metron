@@ -73,3 +73,25 @@ describe('sankey layout', () => {
     expect(centers[2]).toBeLessThanOrEqual(170);
   });
 });
+
+import { dipCounts, repeatingWindow, yieldDeviation } from '../src/cards/strings/analysis';
+
+describe('string analysis', () => {
+  it('compares yields per kWp against the median', () => {
+    const deviation = yieldDeviation([7.5, 7.1, 7.2, 6.1], [5.6, 5.6, 5.6, 5.6]);
+
+    expect(deviation[3]).toBeCloseTo(6.1 / 7.15 - 1, 3);
+  });
+
+  it('finds a repeating dip window', () => {
+    const day = [
+      [1, 1, 1, 1],
+      [1, 1, 1, 1],
+      [1, 0.4, 0.4, 1],
+    ];
+    const counts = dipCounts([day, day, day], [1, 1, 1], 0.25);
+
+    expect(counts[2]).toEqual([0, 3, 3, 0]);
+    expect(repeatingWindow(counts[2] ?? [], 2)).toEqual({ from: 1, to: 3, days: 3 });
+  });
+});
