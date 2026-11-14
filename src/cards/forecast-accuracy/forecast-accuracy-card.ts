@@ -9,6 +9,7 @@ import { fetchSamples, valueBefore } from '../../core/data/history';
 import { formatNumber, formatSigned, unitText } from '../../core/format';
 import { niceMax } from '../../core/math';
 import { addDays, parseClock, startOfDay } from '../../core/time';
+import { findEntity } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -157,8 +158,8 @@ export class MetronForecastAccuracyCard extends MetronCard<
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return { forecast: '' };
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    return { forecast: findEntity(hass, { keywords: ['forecast', 'production_today'] }) ?? '' };
   }
 
   protected parseConfig(raw: RawConfig): ForecastAccuracyCardConfig {
@@ -167,13 +168,17 @@ export class MetronForecastAccuracyCard extends MetronCard<
     return {
       ...cfg.base(raw),
       energy: parseEnergyConfig(raw),
-      forecast: cfg.requiredEntity(raw, 'forecast'),
+      forecast: cfg.entity(raw, 'forecast') ?? '',
       offset,
       sample_time: parseClock(cfg.text(raw, 'sample_time'), offset === 1 ? 21 * 60 : 6 * 60),
       days: cfg.number(raw, 'days', 14, { min: 3, max: 30 }),
       good: cfg.number(raw, 'good', 10, { min: 1, max: 50 }),
       fair: cfg.number(raw, 'fair', 25, { min: 1, max: 100 }),
     };
+  }
+
+  protected override missingOption(config: ForecastAccuracyCardConfig): string | undefined {
+    return config.forecast ? undefined : 'forecast';
   }
 
   protected override cardSize(): number {

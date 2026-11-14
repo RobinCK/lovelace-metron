@@ -7,7 +7,7 @@ import { openMoreInfo } from './actions';
 import { toFormatLocale } from './format';
 import type { FormatLocale } from './format';
 import { createLocalize, resolveLanguage } from './i18n';
-import type { Localize } from './i18n';
+import type { Localize, TranslationKey } from './i18n';
 
 export type RawConfig = Readonly<Record<string, unknown>>;
 
@@ -113,6 +113,10 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
     return 4;
   }
 
+  protected missingOption(_config: C): string | undefined {
+    return undefined;
+  }
+
   setConfig(raw: RawConfig): void {
     if (!raw || typeof raw !== 'object') throw new Error('Invalid configuration');
 
@@ -170,6 +174,18 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
 
     const language = resolveLanguage(config.language ?? hass.locale.language);
     const t = createLocalize(language, config.labels);
+    const missing = this.missingOption(config);
+
+    if (missing) {
+      const key = `editor.${missing}` as TranslationKey;
+      const label = t(key);
+
+      return html`<ha-card class="metron" style="padding:16px">
+        <div class="empty">
+          ${t('common.configure', { option: label === key ? missing : label })}
+        </div>
+      </ha-card>`;
+    }
 
     return html`<ha-card class="metron" style=${colorStyle(config.colors)}>
       ${this.renderBody({
@@ -197,7 +213,7 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
     const config = this._config;
     const hass = this.hass;
 
-    if (!config || !hass) return;
+    if (!config || !hass || this.missingOption(config)) return;
 
     const key = this._dataKey;
     const request = this.fetchData(config, hass);

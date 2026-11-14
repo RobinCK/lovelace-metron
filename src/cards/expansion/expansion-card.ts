@@ -191,10 +191,7 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
   }
 
   protected parseConfig(raw: RawConfig): ExpansionCardConfig {
-    const pv = cfg.optionalNumber(raw, 'pv_power');
-
-    if (pv === undefined || pv <= 0) throw new Error('Option "pv_power" (current kWp) is required');
-
+    const pv = cfg.optionalNumber(raw, 'pv_power') ?? 0;
     const battery = cfg.number(raw, 'battery_capacity', 0, { min: 0 });
 
     return {
@@ -212,6 +209,10 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
       netting: cfg.boolean(raw, 'netting', true),
       currency: cfg.text(raw, 'currency'),
     };
+  }
+
+  protected override missingOption(config: ExpansionCardConfig): string | undefined {
+    return config.pv_power > 0 ? undefined : 'pv_power';
   }
 
   protected override cardSize(): number {

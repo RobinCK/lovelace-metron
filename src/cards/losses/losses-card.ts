@@ -193,8 +193,6 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
       };
     });
 
-    if (stages.length === 0) throw new Error('Add at least one stage with input and output energy');
-
     return {
       ...cfg.base(raw),
       energy: parseEnergyConfig(raw),
@@ -204,6 +202,10 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
       period: cfg.oneOf(raw, 'period', ['day', 'week', 'month', 'year'], 'month'),
       currency: cfg.text(raw, 'currency'),
     };
+  }
+
+  protected override missingOption(config: LossesCardConfig): string | undefined {
+    return config.stages.length === 0 ? 'stages' : undefined;
   }
 
   protected override cardSize(config: LossesCardConfig): number {

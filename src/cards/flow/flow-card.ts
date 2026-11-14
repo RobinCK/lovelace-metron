@@ -17,6 +17,8 @@ import {
 import type { Localize, TranslationKey } from '../../core/i18n';
 import { clamp } from '../../core/math';
 import { strip } from '../../ui/charts';
+import { findEntity } from '../../core/stub';
+import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { axis, empty, header, icon, pill } from '../../ui/parts';
@@ -389,8 +391,18 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return { solar: '', grid: '', battery: '', battery_soc: '', home: '' };
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    const power = (keywords: readonly string[]): string | undefined =>
+      findEntity(hass, { deviceClass: 'power', keywords });
+    const stub = {
+      solar: power(['pv', 'solar']),
+      grid: power(['grid']),
+      battery: power(['battery']),
+      battery_soc: findEntity(hass, { deviceClass: 'battery' }),
+      home: power(['load', 'home', 'house', 'consumption']),
+    };
+
+    return Object.fromEntries(Object.entries(stub).filter(([, value]) => value !== undefined));
   }
 
   protected parseConfig(raw: RawConfig): FlowCardConfig {
@@ -421,11 +433,11 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
       show_panels: cfg.boolean(raw, 'show_panels', true),
     };
 
-    if (!config.solar && !config.grid && !config.battery && !config.home) {
-      throw new Error('Configure at least one of: solar, grid, battery, home');
-    }
-
     return config;
+  }
+
+  protected override missingOption(config: FlowCardConfig): string | undefined {
+    return (config.solar ?? config.grid ?? config.battery ?? config.home) ? undefined : 'solar';
   }
 
   protected override trackedEntities(config: FlowCardConfig): readonly (string | undefined)[] {

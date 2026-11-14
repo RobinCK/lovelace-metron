@@ -9,6 +9,7 @@ import { fetchStatistics } from '../../core/data/statistics';
 import { isCounter } from '../../core/entities';
 import { formatTime } from '../../core/format';
 import { startOfDay } from '../../core/time';
+import { findEntities } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
 import { sparkBars } from '../../ui/charts';
 import * as form from '../../ui/form';
@@ -107,14 +108,14 @@ export class MetronTileCard extends MetronCard<TileCardConfig, Sparklines> {
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return { tiles: [] };
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    return {
+      tiles: findEntities(hass, { deviceClass: 'power' }, 4).map((entity) => ({ entity })),
+    };
   }
 
   protected parseConfig(raw: RawConfig): TileCardConfig {
     const tiles = cfg.list(raw, 'tiles', parseItem);
-
-    if (tiles.length === 0) throw new Error('Add at least one tile with an entity');
 
     return {
       ...cfg.base(raw),
@@ -126,6 +127,10 @@ export class MetronTileCard extends MetronCard<TileCardConfig, Sparklines> {
 
   protected override trackedEntities(config: TileCardConfig): readonly (string | undefined)[] {
     return config.tiles.flatMap(itemEntities);
+  }
+
+  protected override missingOption(config: TileCardConfig): string | undefined {
+    return config.tiles.length === 0 ? 'tiles' : undefined;
   }
 
   protected override cardSize(config: TileCardConfig): number {

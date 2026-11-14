@@ -3,6 +3,8 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
 import * as cfg from '../../core/config';
+import { findEntities } from '../../core/stub';
+import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { header, stateIcon } from '../../ui/parts';
@@ -93,14 +95,14 @@ export class MetronStatusCard extends MetronCard<StatusCardConfig> {
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return { chips: [] };
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    return {
+      chips: findEntities(hass, { deviceClass: 'power' }, 4).map((entity) => ({ entity })),
+    };
   }
 
   protected parseConfig(raw: RawConfig): StatusCardConfig {
     const chips = cfg.list(raw, 'chips', parseItem);
-
-    if (chips.length === 0) throw new Error('Add at least one chip with an entity');
 
     return {
       ...cfg.base(raw),
@@ -111,6 +113,10 @@ export class MetronStatusCard extends MetronCard<StatusCardConfig> {
 
   protected override trackedEntities(config: StatusCardConfig): readonly (string | undefined)[] {
     return config.chips.flatMap(itemEntities);
+  }
+
+  protected override missingOption(config: StatusCardConfig): string | undefined {
+    return config.chips.length === 0 ? 'chips' : undefined;
   }
 
   protected override cardSize(): number {

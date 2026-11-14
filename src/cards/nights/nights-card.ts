@@ -8,6 +8,7 @@ import { fetchStatistics } from '../../core/data/statistics';
 import type { StatisticRow } from '../../core/data/statistics';
 import { formatDate, formatNumber, unitText } from '../../core/format';
 import { addDays, parseClock, startOfDay } from '../../core/time';
+import { findEntity } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -159,21 +160,25 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return { battery_soc: '' };
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    return { battery_soc: findEntity(hass, { deviceClass: 'battery' }) ?? '' };
   }
 
   protected parseConfig(raw: RawConfig): NightsCardConfig {
     return {
       ...cfg.base(raw),
       energy: parseEnergyConfig(raw),
-      battery_soc: cfg.requiredEntity(raw, 'battery_soc'),
+      battery_soc: cfg.entity(raw, 'battery_soc') ?? '',
       battery_capacity: cfg.optionalNumber(raw, 'battery_capacity'),
       battery_reserve: cfg.number(raw, 'battery_reserve', 20, { min: 0, max: 100 }),
       days: cfg.number(raw, 'days', 30, { min: 7, max: 60 }),
       evening: Math.floor(parseClock(cfg.text(raw, 'evening'), 17 * 60) / 60),
       morning: Math.ceil(parseClock(cfg.text(raw, 'morning'), 7 * 60) / 60),
     };
+  }
+
+  protected override missingOption(config: NightsCardConfig): string | undefined {
+    return config.battery_soc ? undefined : 'battery_soc';
   }
 
   protected override cardSize(): number {

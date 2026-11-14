@@ -7,6 +7,7 @@ import * as cfg from '../../core/config';
 import { fetchSamples, resample } from '../../core/data/history';
 import { deviceClass, entityName, formatValue, readNumber } from '../../core/entities';
 import type { Quantity } from '../../core/entities';
+import { findEntities } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
 import { barChart, mirrorChart } from '../../ui/charts';
 import * as form from '../../ui/form';
@@ -163,8 +164,10 @@ export class MetronLiveCard extends MetronCard<LiveCardConfig, History> {
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return { entities: [] };
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    return {
+      entities: findEntities(hass, { deviceClass: 'power' }, 4).map((entity) => ({ entity })),
+    };
   }
 
   protected parseConfig(raw: RawConfig): LiveCardConfig {
@@ -182,8 +185,6 @@ export class MetronLiveCard extends MetronCard<LiveCardConfig, History> {
       };
     });
 
-    if (entities.length === 0) throw new Error('Add at least one entity');
-
     return {
       ...cfg.base(raw),
       entities,
@@ -199,6 +200,10 @@ export class MetronLiveCard extends MetronCard<LiveCardConfig, History> {
 
   protected override refreshInterval(config: LiveCardConfig): number {
     return config.step * MINUTE;
+  }
+
+  protected override missingOption(config: LiveCardConfig): string | undefined {
+    return config.entities.length === 0 ? 'entities' : undefined;
   }
 
   protected override cardSize(config: LiveCardConfig): number {

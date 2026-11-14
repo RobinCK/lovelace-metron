@@ -16,6 +16,7 @@ import { bucketize, fetchStatistics, meanOf } from '../../core/data/statistics';
 import type { StatisticsResult } from '../../core/data/statistics';
 import { formatMoney, formatNumber, formatWeekday, unitText } from '../../core/format';
 import { addDays, startOfDay } from '../../core/time';
+import { findEntity } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -199,15 +200,15 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return { weather: '' };
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    return { weather: findEntity(hass, { domain: 'weather' }) ?? '' };
   }
 
   protected parseConfig(raw: RawConfig): WeekAheadCardConfig {
     return {
       ...cfg.base(raw),
       energy: parseEnergyConfig(raw),
-      weather: cfg.requiredEntity(raw, 'weather'),
+      weather: cfg.entity(raw, 'weather') ?? '',
       days: cfg.number(raw, 'days', 7, { min: 3, max: 7 }),
       gas: cfg.entityIds(raw, 'gas'),
       outdoor: cfg.entity(raw, 'outdoor'),
@@ -217,6 +218,10 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
       outage_calendar: cfg.entity(raw, 'outage_calendar'),
       clear_day: cfg.optionalNumber(raw, 'clear_day'),
     };
+  }
+
+  protected override missingOption(config: WeekAheadCardConfig): string | undefined {
+    return config.weather ? undefined : 'weather';
   }
 
   protected override cardSize(): number {

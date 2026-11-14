@@ -78,7 +78,7 @@ export const fractionOfDay = (time: number): number => (time - startOfDay(time))
 export const parseClock = (value: string | undefined, fallback: number): number => {
   if (!value) return fallback;
 
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value.trim());
 
   if (!match) return fallback;
 

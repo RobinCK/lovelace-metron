@@ -18,6 +18,7 @@ import {
 } from '../../core/format';
 import { sunDay, sunElevation } from '../../core/sun';
 import { addDays, startOfDay } from '../../core/time';
+import { findEntity } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -121,8 +122,10 @@ export class MetronSkyCard extends MetronCard<SkyCardConfig, SkyData> {
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return {};
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    const weather = findEntity(hass, { domain: 'weather' });
+
+    return weather ? { weather } : {};
   }
 
   protected parseConfig(raw: RawConfig): SkyCardConfig {

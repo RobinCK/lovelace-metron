@@ -10,6 +10,7 @@ import type { StatisticRow, StatisticsResult } from '../../core/data/statistics'
 import { entityName, entityOf, formatEntity, readNumber } from '../../core/entities';
 import { formatDuration, formatNumber, formatTime, unitText } from '../../core/format';
 import { hourOfDay, startOfDay } from '../../core/time';
+import { findEntities } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -269,8 +270,10 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return { devices: [] };
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    return {
+      devices: findEntities(hass, { deviceClass: 'power' }, 4).map((power) => ({ power })),
+    };
   }
 
   protected parseConfig(raw: RawConfig): DevicesCardConfig {
@@ -293,9 +296,6 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
       };
     });
 
-    if (devices.length === 0)
-      throw new Error('Add at least one device with a power or energy entity');
-
     return {
       ...cfg.base(raw),
       devices,
@@ -306,6 +306,10 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
       sort: cfg.oneOf(raw, 'sort', ['energy', 'power', 'none'], 'energy'),
       show_unaccounted: cfg.boolean(raw, 'show_unaccounted', true),
     };
+  }
+
+  protected override missingOption(config: DevicesCardConfig): string | undefined {
+    return config.devices.length === 0 ? 'devices' : undefined;
   }
 
   protected override trackedEntities(config: DevicesCardConfig): readonly (string | undefined)[] {

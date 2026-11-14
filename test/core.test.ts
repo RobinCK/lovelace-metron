@@ -60,3 +60,13 @@ describe('math', () => {
     expect(quantile([1, 2, 3, 4, 5], 0.5)).toBe(3);
   });
 });
+
+import { parseClock } from '../src/core/time';
+
+describe('time', () => {
+  it('parses clock values from the time selector', () => {
+    expect(parseClock('17:00:00', 0)).toBe(1020);
+    expect(parseClock('7:30', 0)).toBe(450);
+    expect(parseClock('25:00', 60)).toBe(60);
+  });
+});

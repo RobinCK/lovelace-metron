@@ -8,6 +8,7 @@ export const EN = {
   'common.no_data': 'No data yet',
   'common.loading': 'Loading…',
   'common.this_week': 'This week',
+  'common.configure': 'Set “{option}” in the card editor',
 
   'unit.h': 'h',
   'unit.min': 'min',

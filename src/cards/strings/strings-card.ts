@@ -10,6 +10,7 @@ import { entityName } from '../../core/entities';
 import { formatNumber, formatSigned, unitText } from '../../core/format';
 import { median } from '../../core/math';
 import { addDays, parseClock, startOfDay } from '../../core/time';
+import { findEntities } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -182,8 +183,14 @@ export class MetronStringsCard extends MetronCard<StringsCardConfig, StringsData
     ]);
   }
 
-  static getStubConfig(): RawConfig {
-    return { strings: [] };
+  static getStubConfig(hass?: HomeAssistant): RawConfig {
+    return {
+      strings: findEntities(
+        hass,
+        { deviceClass: 'power', keywords: ['pv1', 'pv2', 'pv3', 'pv4', 'string'] },
+        4,
+      ).map((entity) => ({ entity, peak_power: 5 })),
+    };
   }
 
   protected parseConfig(raw: RawConfig): StringsCardConfig {
@@ -199,8 +206,6 @@ export class MetronStringsCard extends MetronCard<StringsCardConfig, StringsData
         : undefined;
     });
 
-    if (strings.length === 0) throw new Error('Add at least one string power sensor');
-
     const from = cfg.text(raw, 'from');
     const to = cfg.text(raw, 'to');
 
@@ -213,6 +218,10 @@ export class MetronStringsCard extends MetronCard<StringsCardConfig, StringsData
       days: cfg.number(raw, 'days', 7, { min: 2, max: 9 }),
       deviation: cfg.number(raw, 'deviation', 8, { min: 1, max: 50 }) / 100,
     };
+  }
+
+  protected override missingOption(config: StringsCardConfig): string | undefined {
+    return config.strings.length === 0 ? 'strings' : undefined;
   }
 
   protected override cardSize(config: StringsCardConfig): number {
