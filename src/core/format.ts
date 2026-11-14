@@ -1,0 +1,195 @@
+import type { HassLocale } from '../types/ha';
+import type { Localize } from './i18n';
+
+export interface FormatLocale {
+  readonly language: string;
+  readonly numberLocale: string | readonly string[] | undefined;
+  readonly useGrouping: boolean;
+  readonly timeLocale: string | undefined;
+  readonly hour12: boolean | undefined;
+  readonly units: Readonly<Record<string, string>>;
+}
+
+export interface Formatted {
+  readonly value: string;
+  readonly unit: string;
+}
+
+export const DASH = '—';
+export const MINUS = '−';
+
+export const DEFAULT_FORMAT_LOCALE: FormatLocale = {
+  language: 'en',
+  numberLocale: 'en-US',
+  useGrouping: true,
+  timeLocale: 'en-GB',
+  hour12: false,
+  units: {},
+};
+
+export const unitText = (unit: string, locale: FormatLocale): string => locale.units[unit] ?? unit;
+
+const resolveNumberLocale = (locale: HassLocale): string | readonly string[] | undefined => {
+  switch (locale.number_format) {
+    case 'comma_decimal':
+      return ['en-US', 'en'];
+    case 'decimal_comma':
+      return ['de', 'es', 'it'];
+    case 'space_comma':
+      return ['fr', 'sv', 'cs'];
+    case 'system':
+      return undefined;
+    default:
+      return locale.language;
+  }
+};
+
+const resolveHour12 = (locale: HassLocale): boolean | undefined => {
+  if (locale.time_format === '12') return true;
+  if (locale.time_format === '24') return false;
+
+  return undefined;
+};
+
+export const toFormatLocale = (
+  locale: HassLocale | undefined,
+  language?: string,
+  units: Readonly<Record<string, string>> = {},
+): FormatLocale => {
+  if (!locale) return { ...DEFAULT_FORMAT_LOCALE, language: language ?? 'en', units };
+
+  return {
+    language: language ?? locale.language,
+    numberLocale: resolveNumberLocale(locale),
+    useGrouping: locale.number_format !== 'none',
+    timeLocale: locale.time_format === 'system' ? undefined : (language ?? locale.language),
+    hour12: resolveHour12(locale),
+    units,
+  };
+};
+
+const numberFormats = new Map<string, Intl.NumberFormat>();
+
+const numberFormat = (digits: number, locale: FormatLocale): Intl.NumberFormat => {
+  const key = JSON.stringify([locale.numberLocale, locale.useGrouping, digits]);
+  const cached = numberFormats.get(key);
+
+  if (cached) return cached;
+
+  const created = new Intl.NumberFormat(locale.numberLocale as string | string[] | undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    useGrouping: locale.useGrouping,
+  });
+
+  numberFormats.set(key, created);
+
+  return created;
+};
+
+export const formatNumber = (
+  value: number | undefined,
+  digits: number,
+  locale: FormatLocale,
+): string => {
+  if (value === undefined || !Number.isFinite(value)) return DASH;
+
+  const text = numberFormat(digits, locale).format(Math.abs(value));
+  const rounded = Number(Math.abs(value).toFixed(digits));
+
+  return value < 0 && rounded !== 0 ? `${MINUS}${text}` : text;
+};
+
+export const formatSigned = (value: number, digits: number, locale: FormatLocale): string => {
+  const rounded = Number(value.toFixed(digits));
+
+  if (rounded === 0) return formatNumber(0, digits, locale);
+
+  return `${rounded > 0 ? '+' : MINUS}${formatNumber(Math.abs(value), digits, locale)}`;
+};
+
+export const autoDigits = (value: number): number => {
+  const magnitude = Math.abs(value);
+
+  if (magnitude >= 100) return 0;
+  if (magnitude >= 10) return 1;
+
+  return 2;
+};
+
+export const formatPower = (watts: number | undefined, locale: FormatLocale): Formatted => {
+  if (watts === undefined || !Number.isFinite(watts)) {
+    return { value: DASH, unit: unitText('W', locale) };
+  }
+
+  if (Math.abs(watts) >= 1000) {
+    return { value: formatNumber(watts / 1000, 2, locale), unit: unitText('kW', locale) };
+  }
+
+  return { value: formatNumber(Math.round(watts), 0, locale), unit: unitText('W', locale) };
+};
+
+export const formatEnergy = (
+  kwh: number | undefined,
+  locale: FormatLocale,
+  digits?: number,
+): Formatted => {
+  if (kwh === undefined || !Number.isFinite(kwh)) {
+    return { value: DASH, unit: unitText('kWh', locale) };
+  }
+
+  if (Math.abs(kwh) >= 10_000) {
+    return { value: formatNumber(kwh / 1000, digits ?? 2, locale), unit: unitText('MWh', locale) };
+  }
+
+  return {
+    value: formatNumber(kwh, digits ?? autoDigits(kwh), locale),
+    unit: unitText('kWh', locale),
+  };
+};
+
+export const formatPercent = (ratio: number | undefined, locale: FormatLocale): string =>
+  ratio === undefined ? DASH : formatNumber(ratio * 100, 0, locale);
+
+export const formatTime = (time: number, locale: FormatLocale): string =>
+  new Intl.DateTimeFormat(locale.timeLocale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: locale.hour12,
+  }).format(time);
+
+export const formatHour = (time: number, locale: FormatLocale): string =>
+  new Intl.DateTimeFormat(locale.timeLocale, { hour: '2-digit', hour12: locale.hour12 }).format(
+    time,
+  );
+
+export const formatDate = (
+  time: number,
+  locale: FormatLocale,
+  options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' },
+): string => new Intl.DateTimeFormat(locale.timeLocale, options).format(time);
+
+export const formatWeekday = (time: number, locale: FormatLocale): string =>
+  new Intl.DateTimeFormat(locale.timeLocale, { weekday: 'short' }).format(time);
+
+export const formatMonth = (time: number, locale: FormatLocale, long = false): string =>
+  new Intl.DateTimeFormat(locale.timeLocale, { month: long ? 'long' : 'short' }).format(time);
+
+export interface DurationParts {
+  readonly hours: number;
+  readonly minutes: number;
+}
+
+export const durationParts = (minutes: number): DurationParts => {
+  const total = Math.max(0, Math.round(minutes));
+
+  return { hours: Math.floor(total / 60), minutes: total % 60 };
+};
+
+export const formatDuration = (minutes: number, t: Localize): string => {
+  const parts = durationParts(minutes);
+
+  if (parts.hours === 0) return t('duration.m', { m: parts.minutes });
+
+  return t('duration.hm', { h: parts.hours, m: String(parts.minutes).padStart(2, '0') });
+};

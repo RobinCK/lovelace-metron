@@ -1,0 +1,95 @@
+import { DAY, HOUR, MINUTE } from '../const';
+
+export const startOfDay = (time: number): number => {
+  const date = new Date(time);
+
+  date.setHours(0, 0, 0, 0);
+
+  return date.getTime();
+};
+
+export const addDays = (time: number, days: number): number => {
+  const date = new Date(time);
+
+  date.setDate(date.getDate() + days);
+
+  return date.getTime();
+};
+
+export const addMonths = (time: number, months: number): number => {
+  const date = new Date(time);
+
+  date.setMonth(date.getMonth() + months, 1);
+
+  return date.getTime();
+};
+
+export const startOfMonth = (time: number): number => {
+  const date = new Date(startOfDay(time));
+
+  date.setDate(1);
+
+  return date.getTime();
+};
+
+export const startOfYear = (time: number): number => {
+  const date = new Date(startOfMonth(time));
+
+  date.setMonth(0);
+
+  return date.getTime();
+};
+
+export const startOfWeek = (time: number, firstDay = 1): number => {
+  const date = new Date(startOfDay(time));
+  const shift = (date.getDay() - firstDay + 7) % 7;
+
+  date.setDate(date.getDate() - shift);
+
+  return date.getTime();
+};
+
+export const daysInMonth = (time: number): number => {
+  const date = new Date(time);
+
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+};
+
+export const dayKey = (time: number): string => {
+  const date = new Date(time);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${date.getFullYear()}-${month}-${day}`;
+};
+
+export const monthKey = (time: number): string => dayKey(time).slice(0, 7);
+
+export const hourOfDay = (time: number): number => new Date(time).getHours();
+
+export const minutesOfDay = (time: number): number => {
+  const date = new Date(time);
+
+  return date.getHours() * 60 + date.getMinutes();
+};
+
+export const fractionOfDay = (time: number): number => (time - startOfDay(time)) / DAY;
+
+export const parseClock = (value: string | undefined, fallback: number): number => {
+  if (!value) return fallback;
+
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+
+  if (!match) return fallback;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (hours > 24 || minutes > 59) return fallback;
+
+  return hours * 60 + minutes;
+};
+
+export const atMinutes = (dayStart: number, minutes: number): number => dayStart + minutes * MINUTE;
+
+export const hoursBetween = (from: number, to: number): number => (to - from) / HOUR;
