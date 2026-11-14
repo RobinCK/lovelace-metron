@@ -1,8 +1,12 @@
+import { MetronBaseloadCard } from './cards/baseload/baseload-card';
 import { MetronBudgetCard } from './cards/budget/budget-card';
 import { MetronCalendarCard } from './cards/calendar/calendar-card';
 import { MetronClockCard } from './cards/clock/clock-card';
+import { MetronCorridorCard } from './cards/corridor/corridor-card';
 import { MetronDevicesCard } from './cards/devices/devices-card';
+import { MetronDurationCard } from './cards/duration/duration-card';
 import { MetronEnergyDayCard } from './cards/energy-day/energy-day-card';
+import { MetronExpansionCard } from './cards/expansion/expansion-card';
 import { MetronFlowCard } from './cards/flow/flow-card';
 import { MetronForecastAccuracyCard } from './cards/forecast-accuracy/forecast-accuracy-card';
 import { MetronForecastCard } from './cards/forecast/forecast-card';
@@ -11,6 +15,7 @@ import { MetronHistoryCard } from './cards/history/history-card';
 import { MetronLiveCard } from './cards/live/live-card';
 import { MetronLossesCard } from './cards/losses/losses-card';
 import { MetronMoneyCard } from './cards/money/money-card';
+import { MetronNightsCard } from './cards/nights/nights-card';
 import { MetronProfileCard } from './cards/profile/profile-card';
 import { MetronSeasonCard } from './cards/season/season-card';
 import { MetronSkyCard } from './cards/sky/sky-card';
@@ -195,5 +200,40 @@ export const CARDS: readonly CardDefinition[] = [
     name: 'Metron · PV strings',
     description:
       'Per-string production today against the median, with repeating dips that hint at shade.',
+  },
+  {
+    type: 'metron-baseload-card',
+    element: MetronBaseloadCard,
+    name: 'Metron · Base load',
+    description:
+      'The night minimum of the house by day, step changes and what the always-on load is made of.',
+  },
+  {
+    type: 'metron-nights-card',
+    element: MetronNightsCard,
+    name: 'Metron · Nights on battery',
+    description:
+      'Battery charge in the evening against the overnight minimum and the grid import of every night.',
+  },
+  {
+    type: 'metron-duration-card',
+    element: MetronDurationCard,
+    name: 'Metron · Load duration',
+    description:
+      'How many hours the house spends at each load level, with phase peaks against the limit.',
+  },
+  {
+    type: 'metron-corridor-card',
+    element: MetronCorridorCard,
+    name: 'Metron · Normal corridor',
+    description:
+      'Today by hour against the usual range of the same weekday, with time spent outside it.',
+  },
+  {
+    type: 'metron-expansion-card',
+    element: MetronExpansionCard,
+    name: 'Metron · Solar expansion',
+    description:
+      'A year model of more panels or a bigger battery: self-sufficiency, import and money.',
   },
 ];

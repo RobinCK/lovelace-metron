@@ -513,6 +513,87 @@ Options: `strings` (`entity`, `name`, `peak_power` in kWp), `from` / `to` (windo
 `dip` (% below the median, `25`), `days` (`7`, up to 9 because 5-minute statistics are kept for 10
 days), `deviation` (flag threshold, `8` %).
 
+### Base load — `custom:metron-baseload-card`
+
+The night minimum of the house for every day, its median for the last two weeks, a step change
+when the base load moved, what it costs a year and what it is made of when you list the known
+always-on loads.
+
+```yaml
+type: custom:metron-baseload-card
+entity: sensor.deye_load_power
+price: 4.32
+loads:
+  - { entity: sensor.network_rack_power, name: Network and cameras }
+  - { entity: sensor.fridge_power, name: Fridges }
+```
+
+Options: `entity` (home power or energy; home consumption from the energy sensors when omitted),
+`days` (`30`), `night_start` / `night_end` (`01:00` / `05:00`), `loads` (`entity`, `name`, `color`),
+`price`, `currency`, `step_threshold` (W, `40`).
+
+### Nights on battery — `custom:metron-nights-card`
+
+For every night: the battery charge in the evening, the lowest charge until the morning and the
+grid import overnight, with how many nights the battery was enough.
+
+```yaml
+type: custom:metron-nights-card
+battery_soc: sensor.deye_battery_soc
+battery_capacity: 16
+battery_reserve: 20
+```
+
+Options: `battery_soc` (required), `battery_capacity`, `battery_reserve` (`20`), `evening`
+(`17:00`), `morning` (`07:00`), `days` (`30`) and the energy sensors for the import.
+
+### Load duration — `custom:metron-duration-card`
+
+The hourly load sorted from the highest to the lowest: how many hours the house spends above a
+level, the average, the value 90 % of the time stays below and the peak per phase against a limit.
+
+```yaml
+type: custom:metron-duration-card
+entity: sensor.deye_load_power
+threshold: 5
+phase_limit: 10
+phases:
+  - sensor.deye_load_l1_power
+  - sensor.deye_load_l2_power
+  - sensor.deye_load_l3_power
+```
+
+Options: `entity`, `threshold` (kW, `5`), `phases`, `phase_limit` (kW per phase), `period`
+(`month`).
+
+### Normal corridor — `custom:metron-corridor-card`
+
+Today by hour against the usual range of the same weekday over the last weeks: the 10–90 %
+corridor, the median, hours outside the corridor and the consumption since midnight against the
+usual one.
+
+Options: `entity` (power or energy; the live power fills the current hour), `weeks` (`6`), `low` /
+`high` (percentiles, `10` / `90`), `same_weekday` (`true`).
+
+### Solar expansion — `custom:metron-expansion-card`
+
+A model of the last twelve months with more panels or a bigger battery: an hourly simulation of
+a typical day per month gives self-sufficiency, import, export and the yearly balance in money.
+
+```yaml
+type: custom:metron-expansion-card
+pv_power: 22.4
+battery_capacity: 16
+pv_step: 5.6
+battery_step: 16
+price: 4.32
+export_price: 5.88
+```
+
+Options: `pv_power` (current kWp, required), `battery_capacity`, `pv_step`, `battery_step`, `steps`
+(`2`), `usable` (usable battery share, `80` %), `efficiency` (`95` %), `price`, `export_price`,
+`netting` (`true`), `currency` and the energy sensors.
+
 ## Development
 
 ```bash
