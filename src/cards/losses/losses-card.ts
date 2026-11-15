@@ -6,6 +6,7 @@ import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
 import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import { formatDate, formatMoney, formatMonth, formatNumber, unitText } from '../../core/format';
+import { firstWeekday } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -17,11 +18,13 @@ import {
   parseEnergyConfig,
   resolveSources,
 } from '../shared/energy-sources';
-import type { EnergyConfig } from '../shared/energy-sources';
+import type { EnergyConfig, EnergyKey } from '../shared/energy-sources';
 import { currencyOf, parsePrice, priceOf } from '../shared/prices';
 import type { Price } from '../shared/prices';
 import { periodToDate } from '../stats/periods';
 import type { PeriodKind } from '../stats/periods';
+
+const ENERGY: readonly EnergyKey[] = ['solar'];
 
 export interface LossStage {
   readonly name: string;
@@ -33,7 +36,6 @@ export interface LossStage {
 export interface LossesCardConfig extends BaseConfig {
   readonly energy: EnergyConfig;
   readonly stages: readonly LossStage[];
-  readonly input?: string;
   readonly price?: Price;
   readonly period: PeriodKind;
   readonly currency?: string;
@@ -147,7 +149,7 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.list(
         'stages',
@@ -165,12 +167,8 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
         },
         'name',
       ),
-      form.grid(
-        form.energyEntity('input'),
-        form.select('period', ['day', 'week', 'month', 'year']),
-      ),
+      form.grid(...energyFields(ENERGY), form.select('period', ['day', 'week', 'month', 'year'])),
       form.grid(form.number('price', { min: 0, step: 0.01 }), form.text('currency')),
-      ...energyFields(),
     ]);
   }
 
@@ -195,9 +193,8 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
 
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: parseEnergyConfig(raw, ENERGY),
       stages,
-      input: cfg.entity(raw, 'input'),
       price: parsePrice(raw, 'price'),
       period: cfg.oneOf(raw, 'period', ['day', 'week', 'month', 'year'], 'month'),
       currency: cfg.text(raw, 'currency'),
@@ -221,10 +218,8 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
     hass: HomeAssistant,
   ): Promise<LossesData> {
     const now = Date.now();
-    const range = periodToDate(config.period, now);
-    const referenceIds = config.input
-      ? [config.input]
-      : (await resolveSources(hass, config.energy)).solar;
+    const range = periodToDate(config.period, now, firstWeekday(hass.locale));
+    const referenceIds = (await resolveSources(hass, config.energy, ENERGY)).solar;
     const ids = [
       ...new Set([
         ...referenceIds,

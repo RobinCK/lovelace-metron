@@ -34,9 +34,11 @@ import {
   resolveSources,
   total,
 } from '../shared/energy-sources';
-import type { EnergyConfig } from '../shared/energy-sources';
+import type { EnergyConfig, EnergyKey } from '../shared/energy-sources';
 import { currencyOf, parsePrice, priceOf } from '../shared/prices';
 import type { Price } from '../shared/prices';
+
+const ENERGY: readonly EnergyKey[] = ['solar'];
 
 export interface WeekAheadCardConfig extends BaseConfig {
   readonly energy: EnergyConfig;
@@ -182,7 +184,7 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.entity('weather', { domain: ['weather'] }, true),
       form.grid(
@@ -196,7 +198,7 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
       ),
       form.grid(form.number('gas_price', { min: 0, step: 0.01 }), form.text('currency')),
       form.entity('outage_calendar', { domain: ['calendar'] }),
-      ...energyFields(),
+      ...energyFields(ENERGY),
     ]);
   }
 
@@ -207,7 +209,7 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
   protected parseConfig(raw: RawConfig): WeekAheadCardConfig {
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: parseEnergyConfig(raw, ENERGY),
       weather: cfg.entity(raw, 'weather') ?? '',
       days: cfg.number(raw, 'days', 7, { min: 3, max: 7 }),
       gas: cfg.entityIds(raw, 'gas'),
@@ -241,7 +243,7 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
     const end = addDays(today, config.days);
     const historyStart = addDays(today, -30);
     const historyDays = Array.from({ length: 30 }, (_, index) => addDays(historyStart, index));
-    const sources = await resolveSources(hass, config.energy);
+    const sources = await resolveSources(hass, config.energy, ENERGY);
     const gasIds = await resolveGas(hass, config.gas, config.energy.energy_dashboard);
     const [weather, forecast, history, gas, outdoor, outages] = await Promise.all([
       fetchWeatherForecast(hass, config.weather, 'daily'),

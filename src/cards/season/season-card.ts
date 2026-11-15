@@ -22,7 +22,6 @@ import type { SeasonBounds } from './season';
 
 export interface SeasonCardConfig extends BaseConfig {
   readonly gas: readonly string[];
-  readonly energy_dashboard: boolean;
   readonly outdoor?: string;
   readonly base_temperature: number;
   readonly season_start?: string;
@@ -144,7 +143,7 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.entities('gas', { domain: ['sensor'], deviceClass: ['gas'] }),
       form.grid(
@@ -152,7 +151,6 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
         form.number('base_temperature', { min: 10, max: 25, step: 0.5, unit: '°C' }),
       ),
       form.grid(form.text('season_start'), form.text('season_end')),
-      form.toggle('energy_dashboard'),
     ]);
   }
 
@@ -164,7 +162,6 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
     return {
       ...cfg.base(raw),
       gas: cfg.entityIds(raw, 'gas'),
-      energy_dashboard: cfg.boolean(raw, 'energy_dashboard', true),
       outdoor: cfg.entity(raw, 'outdoor'),
       base_temperature: cfg.number(raw, 'base_temperature', 18, { min: 0, max: 30 }),
       season_start: cfg.text(raw, 'season_start'),
@@ -186,7 +183,7 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
   ): Promise<SeasonData> {
     const now = Date.now();
     const bounds = seasonBounds(now, config.season_start, config.season_end);
-    const gasIds = await resolveGas(hass, config.gas, config.energy_dashboard);
+    const gasIds = await resolveGas(hass, config.gas);
     const weekCount = Math.ceil((bounds.end - bounds.start) / (7 * DAY));
     const weeks = Array.from({ length: weekCount }, (_, index) => addDays(bounds.start, index * 7));
     const previousWeeks = Array.from({ length: weekCount }, (_, index) =>

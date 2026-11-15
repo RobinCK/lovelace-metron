@@ -119,7 +119,7 @@ export class MetronHistoryCard extends MetronCard<HistoryCardConfig, HistoryData
     this._offset = 0;
   }
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(form.select('mode', ['consumption', 'production']), form.toggle('navigation')),
       form.number('height', { min: 60, max: 240, unit: 'px' }),

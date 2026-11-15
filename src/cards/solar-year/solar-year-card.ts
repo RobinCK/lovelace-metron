@@ -4,8 +4,6 @@ import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
 import * as cfg from '../../core/config';
-import { bucketize, changeOf, fetchStatistics } from '../../core/data/statistics';
-import { readNumber } from '../../core/entities';
 import {
   formatDate,
   formatEnergy,
@@ -14,7 +12,7 @@ import {
   formatWeekday,
   unitText,
 } from '../../core/format';
-import { addDays, startOfDay, startOfWeek } from '../../core/time';
+import { addDays, firstWeekday, startOfDay, startOfWeek } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -28,16 +26,16 @@ import {
   parseEnergyConfig,
   resolveSources,
 } from '../shared/energy-sources';
-import type { EnergyConfig, Series } from '../shared/energy-sources';
+import type { EnergyConfig, EnergyKey, Series } from '../shared/energy-sources';
+
+const ENERGY: readonly EnergyKey[] = ['solar'];
 
 export interface SolarYearCardConfig extends BaseConfig {
   readonly energy: EnergyConfig;
-  readonly entity?: string;
   readonly weeks: number;
   readonly good_day?: number;
   readonly max?: number;
   readonly color?: string;
-  readonly first_weekday: number;
 }
 
 interface YearData {
@@ -100,15 +98,14 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
-      form.energyEntity('entity'),
+      ...energyFields(ENERGY),
       form.grid(form.number('weeks', { min: 4, max: 53 }), form.text('color')),
       form.grid(
         form.number('good_day', { min: 0, step: 0.1, unit: 'kWh' }),
         form.number('max', { min: 0, step: 0.1, unit: 'kWh' }),
       ),
-      ...energyFields(),
     ]);
   }
 
@@ -119,13 +116,11 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
   protected parseConfig(raw: RawConfig): SolarYearCardConfig {
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
-      entity: cfg.entity(raw, 'entity'),
+      energy: parseEnergyConfig(raw, ENERGY),
       weeks: cfg.number(raw, 'weeks', 53, { min: 4, max: 53 }),
       good_day: cfg.optionalNumber(raw, 'good_day'),
       max: cfg.optionalNumber(raw, 'max'),
       color: cfg.text(raw, 'color'),
-      first_weekday: cfg.number(raw, 'first_weekday', 1, { min: 0, max: 6 }),
     };
   }
 
@@ -142,38 +137,13 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
     hass: HomeAssistant,
   ): Promise<YearData> {
     const now = Date.now();
-    const start = addDays(startOfWeek(now, config.first_weekday), -7 * (config.weeks - 1));
+    const start = addDays(startOfWeek(now, firstWeekday(hass.locale)), -7 * (config.weeks - 1));
     const end = addDays(startOfDay(now), 1);
     const starts = Array.from({ length: Math.round((end - start) / DAY) }, (_, index) =>
       addDays(start, index),
     );
 
-    if (config.entity) {
-      const result = await fetchStatistics(hass, {
-        entityIds: [config.entity],
-        start,
-        end,
-        period: 'day',
-        types: ['change', 'state'],
-      });
-      const values = bucketize(result.get(config.entity), starts, changeOf, 'sum', end);
-      const rows = result.get(config.entity) ?? [];
-      const state = rows[rows.length - 1]?.state;
-      const current = readNumber(hass, config.entity, 'energy');
-      const tail =
-        current !== undefined && state !== null && state !== undefined && current >= state
-          ? current - state
-          : 0;
-
-      return {
-        start,
-        values: values.map((value, index) =>
-          index === values.length - 1 ? (value ?? 0) + tail : value,
-        ),
-      };
-    }
-
-    const sources = await resolveSources(hass, config.energy);
+    const sources = await resolveSources(hass, config.energy, ENERGY);
     const statistics = await fetchEnergyStatistics(hass, sources, start - DAY, end, 'day');
 
     return { start, values: energySeries(statistics, sources, starts, end, { hass, now }).solar };

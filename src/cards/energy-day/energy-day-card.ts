@@ -223,7 +223,7 @@ export class MetronEnergyDayCard extends MetronCard<EnergyDayCardConfig, DayData
     this._offset = 0;
   }
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(form.powerEntity('solar_power'), form.powerEntity('home_power')),
       form.grid(

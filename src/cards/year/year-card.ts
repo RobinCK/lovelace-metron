@@ -84,7 +84,7 @@ export class MetronYearCard extends MetronCard<YearCardConfig, YearData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(
         form.number('months', { min: 3, max: 24 }),

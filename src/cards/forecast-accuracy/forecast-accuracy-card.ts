@@ -22,7 +22,9 @@ import {
   parseEnergyConfig,
   resolveSources,
 } from '../shared/energy-sources';
-import type { EnergyConfig, Series } from '../shared/energy-sources';
+import type { EnergyConfig, EnergyKey, Series } from '../shared/energy-sources';
+
+const ENERGY: readonly EnergyKey[] = ['solar'];
 
 export interface ForecastAccuracyCardConfig extends BaseConfig {
   readonly energy: EnergyConfig;
@@ -145,7 +147,7 @@ export class MetronForecastAccuracyCard extends MetronCard<
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.entity('forecast', { domain: ['sensor'] }, true),
       form.grid(form.select('offset', ['0', '1']), form.time('sample_time')),
@@ -154,7 +156,7 @@ export class MetronForecastAccuracyCard extends MetronCard<
         form.number('good', { min: 1, max: 50, unit: '%' }),
       ),
       form.number('fair', { min: 1, max: 100, unit: '%' }),
-      ...energyFields(),
+      ...energyFields(ENERGY),
     ]);
   }
 
@@ -167,7 +169,7 @@ export class MetronForecastAccuracyCard extends MetronCard<
 
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: parseEnergyConfig(raw, ENERGY),
       forecast: cfg.entity(raw, 'forecast') ?? '',
       offset,
       sample_time: parseClock(cfg.text(raw, 'sample_time'), offset === 1 ? 21 * 60 : 6 * 60),
@@ -196,7 +198,7 @@ export class MetronForecastAccuracyCard extends MetronCard<
     const today = startOfDay(Date.now());
     const first = addDays(today, -config.days);
     const starts = Array.from({ length: config.days }, (_, index) => addDays(first, index));
-    const sources = await resolveSources(hass, config.energy);
+    const sources = await resolveSources(hass, config.energy, ENERGY);
     const [statistics, samples] = await Promise.all([
       fetchEnergyStatistics(hass, sources, first - DAY, today, 'day'),
       fetchSamples(hass, [[config.forecast, 'energy']], addDays(first, -config.offset - 1), today),

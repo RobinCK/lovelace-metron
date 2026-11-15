@@ -158,7 +158,7 @@ export class MetronStringsCard extends MetronCard<StringsCardConfig, StringsData
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.list(
         'strings',

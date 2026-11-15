@@ -29,7 +29,6 @@ import type { Series } from '../shared/energy-sources';
 
 export interface GasCardConfig extends BaseConfig {
   readonly gas: readonly string[];
-  readonly energy_dashboard: boolean;
   readonly indoor?: string;
   readonly outdoor?: string;
   readonly boiler?: string;
@@ -140,7 +139,7 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.entities('gas', { domain: ['sensor'], deviceClass: ['gas'] }),
       form.grid(
@@ -151,7 +150,7 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
         form.entity('boiler', { domain: ['binary_sensor', 'switch', 'climate', 'input_boolean'] }),
         form.number('base_temperature', { min: 10, max: 25, step: 0.5, unit: '°C' }),
       ),
-      form.grid(form.toggle('compare'), form.toggle('energy_dashboard')),
+      form.toggle('compare'),
     ]);
   }
 
@@ -163,7 +162,6 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
     return {
       ...cfg.base(raw),
       gas: cfg.entityIds(raw, 'gas'),
-      energy_dashboard: cfg.boolean(raw, 'energy_dashboard', true),
       indoor: cfg.entity(raw, 'indoor'),
       outdoor: cfg.entity(raw, 'outdoor'),
       boiler: cfg.entity(raw, 'boiler'),
@@ -186,7 +184,7 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
     const end = addMonths(start, 1);
     const days = daysInMonth(start);
     const starts = Array.from({ length: days }, (_, index) => addDays(start, index));
-    const gasIds = await resolveGas(hass, config.gas, config.energy_dashboard);
+    const gasIds = await resolveGas(hass, config.gas);
     const lastStart = addMonths(start, -12);
     const lastEnd = lastStart + (now - start);
     const temperatures = [config.outdoor, config.indoor].filter(

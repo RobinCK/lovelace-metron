@@ -71,7 +71,11 @@ Colors can also be set globally from a theme with `metron-solar-color`, `metron-
 `metron-cold-color` and `metron-ok-color`.
 
 Power sensors may report W or kW, energy sensors Wh, kWh or MWh, gas m³, L or ft³ — values are
-converted automatically.
+converted automatically. Dates, times and the first day of the week follow your Home Assistant
+profile.
+
+The visual editor shows the entity ID under every selected entity and in the entity lists, so
+sensors with the same name are easy to tell apart.
 
 ## Cards
 
@@ -159,7 +163,6 @@ grid_voltages:
 | `grid_frequency`      | —         | Grid frequency sensor.                                                       |
 | `grid_voltages`       | —         | List of phase voltage sensors (`entity`, optional `name`).                   |
 | `voltage_min` / `max` | `207/253` | Allowed voltage range; values within `voltage_margin` (5 V) are highlighted. |
-| `sun`                 | `sun.sun` | Sun entity for sunrise / sunset.                                             |
 | `height`              | `216`     | Maximum Sankey height, px.                                                   |
 | `animate`             | `true`    | Animated dots along the flows.                                               |
 | `show_panels`         | `true`    | Battery and grid panels below the diagram.                                   |
@@ -321,6 +324,12 @@ without any options.
 
 Counters can be daily meters or lifetime totals. The ongoing hour is added from the live state.
 
+Cards that need only some of the sources show only those: Solar year, Losses, Forecast accuracy
+and Week ahead take `solar_energy`, Nights on battery `grid_import_energy`, Solar forecast
+`home_energy`, Tariff zones the grid import and export. Load profile, Load duration, Normal
+corridor and Base load take the home consumption from their `entity` and otherwise from the
+energy dashboard.
+
 ### Energy day — `custom:metron-energy-day-card`
 
 <img src="docs/images/energy-day.png" width="480" alt="Energy day">
@@ -404,8 +413,7 @@ A month calendar with a ring per day. Self-sufficiency is colored by level; ener
 relative to the best day of the month. With `grid_status` days with outages get a mark.
 
 Options: `metric` (`self_sufficiency`, `self_consumption`, `solar`, `home`, `import`, `export`),
-`high` / `low` (`70` / `40`), `grid_status`, `invert_grid_status`, `navigation`, `first_weekday`
-(`1` = Monday, `0` = Sunday).
+`high` / `low` (`70` / `40`), `grid_status`, `invert_grid_status`, `navigation`.
 
 ### Load profile — `custom:metron-profile-card`
 
@@ -414,8 +422,8 @@ Options: `metric` (`self_sufficiency`, `self_consumption`, `solar`, `home`, `imp
 Average power by weekday and hour over the last weeks, the peak, the night base load and the
 average daily consumption on weekdays and weekends.
 
-Options: `entity` (power sensor or energy counter; home consumption from the energy sensors when
-omitted), `weeks` (`4`), `color`, `night_start` / `night_end` (`1` / `5`), `first_weekday`.
+Options: `entity` (power sensor or energy counter; home consumption from the energy dashboard
+when omitted), `weeks` (`4`), `color`, `night_start` / `night_end` (`1` / `5`).
 
 ### Solar year — `custom:metron-solar-year-card`
 
@@ -424,8 +432,8 @@ omitted), `weeks` (`4`), `color`, `night_start` / `night_end` (`1` / `5`), `firs
 A year of daily solar production as a calendar heatmap with the year total, the best and the
 average day.
 
-Options: `entity` (solar energy counter; energy sensors when omitted), `weeks` (`53`), `good_day`
-(kWh, counts the days above it), `max` (kWh for the full color), `color`, `first_weekday`.
+Options: `solar_energy` (solar counter(s); the energy dashboard when omitted), `weeks` (`53`),
+`good_day` (kWh, counts the days above it), `max` (kWh for the full color), `color`.
 
 ### Gas — `custom:metron-gas-card`
 
@@ -444,7 +452,7 @@ boiler: binary_sensor.boiler_heating
 
 Options: `gas` (gas counter(s); the energy dashboard gas source when omitted), `indoor`, `outdoor`
 (temperature sensors with statistics), `boiler` (binary sensor, switch or climate), `base_temperature`
-(degree-day base, `18` °C), `compare` (year over year, `true`), `energy_dashboard`.
+(degree-day base, `18` °C), `compare` (year over year, `true`).
 
 ### Heating season — `custom:metron-season-card`
 
@@ -453,8 +461,8 @@ Options: `gas` (gas counter(s); the energy dashboard gas source when omitted), `
 Cumulative gas for the heating season by week against last season, a forecast for the rest of
 the season scaled by how this season compares so far, degree-days and weather-adjusted use.
 
-Options: `gas`, `outdoor`, `base_temperature` (`18`), `season_start` (`10-15`), `season_end`
-(`04-30`), `energy_dashboard`.
+Options: `gas` (the energy dashboard gas source when omitted), `outdoor`, `base_temperature`
+(`18`), `season_start` (`10-15`), `season_end` (`04-30`).
 
 ### Money — `custom:metron-money-card`
 
@@ -523,7 +531,7 @@ chain efficiency against a reference input and the cost of the losses.
 
 ```yaml
 type: custom:metron-losses-card
-input: sensor.deye_day_pv_energy
+solar_energy: sensor.deye_day_pv_energy
 price: 4.32
 stages:
   - name: Stabilizers
@@ -534,8 +542,8 @@ stages:
     output: sensor.deye_day_battery_discharge
 ```
 
-Options: `stages` (`name`, `input`, `output`, `color`), `input` (reference input; solar energy when
-omitted), `price`, `currency`, `period` (`month`).
+Options: `stages` (`name`, `input`, `output`, `color`), `solar_energy` (reference input; the
+energy dashboard solar when omitted), `price`, `currency`, `period` (`month`).
 
 ### Solar forecast — `custom:metron-forecast-card`
 
@@ -556,7 +564,8 @@ appliances:
 
 Options: `weather` (icons per day), `days` (`3`), `threshold` (surplus, kW, `1.5`), `history_days`
 (typical load, `14`), `forecast_entities` (daily totals: today, tomorrow, …), `appliances` (`name`,
-`power` in W, `icon`). Hourly bars need the energy dashboard solar forecast.
+`power` in W, `icon`), `home_energy` (typical load; the energy dashboard when omitted). Hourly bars
+need the energy dashboard solar forecast.
 
 ### Forecast accuracy — `custom:metron-forecast-accuracy-card`
 
@@ -573,7 +582,7 @@ forecast: sensor.energy_production_today
 Options: `forecast` (required; a sensor with the forecast for the day), `offset` (`0` when the
 sensor forecasts today, `1` when it forecasts tomorrow), `sample_time` (when to read the forecast,
 `06:00`, or `21:00` the day before with `offset: 1`), `days` (`14`), `good` / `fair` (error levels,
-`10` / `25` %).
+`10` / `25` %), `solar_energy` (actual production; the energy dashboard when omitted).
 
 ### Week ahead — `custom:metron-week-ahead-card`
 
@@ -592,7 +601,7 @@ outage_calendar: calendar.outages
 
 Options: `weather` (required), `days` (`7`), `clear_day` (kWh on a clear day; the best day of the
 last 30 days by default), `gas`, `outdoor`, `base_temperature`, `gas_price`, `currency`,
-`outage_calendar`. Days without a solar forecast are estimated from the weather condition and
+`outage_calendar`, `solar_energy` (the energy dashboard when omitted). Days without a solar forecast are estimated from the weather condition and
 marked with ≈.
 
 ### Sun and sky — `custom:metron-sky-card`
@@ -602,8 +611,7 @@ marked with ≈.
 The sun path for today with sunrise, noon and sunset, cloud cover by hour, day length, sun
 elevation and current solar power against the best value for this hour in the last 30 days.
 
-Options: `weather` (cloud cover), `solar_power`, `latitude` / `longitude` (Home Assistant location
-by default).
+Options: `weather` (cloud cover), `solar_power`. The sun path uses the Home Assistant location.
 
 ### Day clock — `custom:metron-clock-card`
 
@@ -651,7 +659,7 @@ loads:
   - { entity: sensor.fridge_power, name: Fridges }
 ```
 
-Options: `entity` (home power or energy; home consumption from the energy sensors when omitted),
+Options: `entity` (home power or energy; home consumption from the energy dashboard when omitted),
 `days` (`30`), `night_start` / `night_end` (`01:00` / `05:00`), `loads` (`entity`, `name`, `color`),
 `price`, `currency`, `step_threshold` (W, `40`).
 
@@ -670,7 +678,8 @@ battery_reserve: 20
 ```
 
 Options: `battery_soc` (required), `battery_capacity`, `battery_reserve` (`20`), `evening`
-(`17:00`), `morning` (`07:00`), `days` (`30`) and the energy sensors for the import.
+(`17:00`), `morning` (`07:00`), `days` (`30`), `grid_import_energy` (the energy dashboard when
+omitted).
 
 ### Load duration — `custom:metron-duration-card`
 
@@ -690,8 +699,8 @@ phases:
   - sensor.deye_load_l3_power
 ```
 
-Options: `entity`, `threshold` (kW, `5`), `phases`, `phase_limit` (kW per phase), `period`
-(`month`).
+Options: `entity` (home power or energy; the energy dashboard when omitted), `threshold` (kW,
+`5`), `phases`, `phase_limit` (kW per phase), `period` (`month`).
 
 ### Normal corridor — `custom:metron-corridor-card`
 
@@ -701,8 +710,8 @@ Today by hour against the usual range of the same weekday over the last weeks: t
 corridor, the median, hours outside the corridor and the consumption since midnight against the
 usual one.
 
-Options: `entity` (power or energy; the live power fills the current hour), `weeks` (`6`), `low` /
-`high` (percentiles, `10` / `90`), `same_weekday` (`true`).
+Options: `entity` (power or energy, the energy dashboard when omitted; the live power fills the
+current hour), `weeks` (`6`), `low` / `high` (percentiles, `10` / `90`), `same_weekday` (`true`).
 
 ### Solar expansion — `custom:metron-expansion-card`
 

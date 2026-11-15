@@ -20,7 +20,7 @@ import type { ConfigForm } from '../../ui/form';
 import { axis, header, meta, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
-import { energyFields, parseEnergyConfig } from '../shared/energy-sources';
+import { DASHBOARD_ENERGY } from '../shared/energy-sources';
 import type { EnergyConfig } from '../shared/energy-sources';
 import { fetchHourlyLoad } from '../shared/hourly';
 
@@ -127,15 +127,14 @@ export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorD
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
-      form.entity('entity', { domain: ['sensor'], deviceClass: ['power', 'energy'] }),
+      form.consumptionEntity(),
       form.grid(form.number('weeks', { min: 2, max: 12 }), form.toggle('same_weekday')),
       form.grid(
         form.number('low', { min: 0, max: 49, unit: '%' }),
         form.number('high', { min: 51, max: 100, unit: '%' }),
       ),
-      ...energyFields(),
     ]);
   }
 
@@ -146,7 +145,7 @@ export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorD
   protected parseConfig(raw: RawConfig): CorridorCardConfig {
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: DASHBOARD_ENERGY,
       entity: cfg.entity(raw, 'entity'),
       weeks: cfg.number(raw, 'weeks', 6, { min: 2, max: 12 }),
       low: cfg.number(raw, 'low', 10, { min: 0, max: 49 }) / 100,

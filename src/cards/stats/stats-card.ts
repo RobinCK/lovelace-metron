@@ -14,6 +14,7 @@ import {
 } from '../../core/format';
 import type { Localize, TranslationKey } from '../../core/i18n';
 import { niceMax } from '../../core/math';
+import { firstWeekday } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import { gauge } from '../../ui/charts';
 import * as form from '../../ui/form';
@@ -138,7 +139,7 @@ export class MetronStatsCard extends MetronCard<StatsCardConfig, StatsData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(form.select('period', ['day', 'week', 'month', 'year']), form.toggle('compare')),
       ...energyFields(),
@@ -167,7 +168,7 @@ export class MetronStatsCard extends MetronCard<StatsCardConfig, StatsData> {
     hass: HomeAssistant,
   ): Promise<StatsData> {
     const now = Date.now();
-    const range = periodToDate(config.period, now);
+    const range = periodToDate(config.period, now, firstWeekday(hass.locale));
     const sources = await resolveSources(hass, config.energy);
     const granularity = config.period === 'day' ? 'hour' : 'day';
     const [current, previous] = await Promise.all([

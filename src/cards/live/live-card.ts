@@ -149,7 +149,7 @@ export class MetronLiveCard extends MetronCard<LiveCardConfig, History> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.list('entities', {
         ...form.ITEM_FIELDS,

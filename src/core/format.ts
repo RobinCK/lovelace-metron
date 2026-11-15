@@ -5,8 +5,8 @@ export interface FormatLocale {
   readonly language: string;
   readonly numberLocale: string | readonly string[] | undefined;
   readonly useGrouping: boolean;
-  readonly timeLocale: string | undefined;
-  readonly hour12: boolean | undefined;
+  readonly timeLocale: string;
+  readonly hour12: boolean;
   readonly units: Readonly<Record<string, string>>;
 }
 
@@ -44,11 +44,14 @@ const resolveNumberLocale = (locale: HassLocale): string | readonly string[] | u
   }
 };
 
-const resolveHour12 = (locale: HassLocale): boolean | undefined => {
+const usesAmPm = (language: string | undefined): boolean =>
+  new Intl.DateTimeFormat(language, { hour: 'numeric' }).resolvedOptions().hour12 === true;
+
+const resolveHour12 = (locale: HassLocale, language: string): boolean => {
   if (locale.time_format === '12') return true;
   if (locale.time_format === '24') return false;
 
-  return undefined;
+  return usesAmPm(locale.time_format === 'system' ? undefined : language);
 };
 
 export const toFormatLocale = (
@@ -58,12 +61,14 @@ export const toFormatLocale = (
 ): FormatLocale => {
   if (!locale) return { ...DEFAULT_FORMAT_LOCALE, language: language ?? 'en', units };
 
+  const resolved = language ?? locale.language;
+
   return {
-    language: language ?? locale.language,
+    language: resolved,
     numberLocale: resolveNumberLocale(locale),
     useGrouping: locale.number_format !== 'none',
-    timeLocale: locale.time_format === 'system' ? undefined : (language ?? locale.language),
-    hour12: resolveHour12(locale),
+    timeLocale: resolved,
+    hour12: resolveHour12(locale, resolved),
     units,
   };
 };

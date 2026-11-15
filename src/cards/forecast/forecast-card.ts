@@ -26,8 +26,10 @@ import {
   resolveSources,
   total,
 } from '../shared/energy-sources';
-import type { EnergyConfig } from '../shared/energy-sources';
+import type { EnergyConfig, EnergyKey } from '../shared/energy-sources';
 import { surplusWindow } from './surplus';
+
+const ENERGY: readonly EnergyKey[] = ['home'];
 
 export interface Appliance {
   readonly name: string;
@@ -204,7 +206,7 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
 
   declare _day: number | undefined;
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(
         form.entity('weather', { domain: ['weather'] }),
@@ -224,7 +226,7 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
         },
         'name',
       ),
-      ...energyFields(),
+      ...energyFields(ENERGY),
     ]);
   }
 
@@ -235,7 +237,7 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
   protected parseConfig(raw: RawConfig): ForecastCardConfig {
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: parseEnergyConfig(raw, ENERGY),
       weather: cfg.entity(raw, 'weather'),
       days: cfg.number(raw, 'days', 3, { min: 1, max: 7 }),
       threshold: cfg.number(raw, 'threshold', 1.5, { min: 0 }),

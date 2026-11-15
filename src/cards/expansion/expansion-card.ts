@@ -162,7 +162,7 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
     this._battery = 0;
   }
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(
         form.number('pv_power', { min: 0, step: 0.1, unit: 'kWp' }),

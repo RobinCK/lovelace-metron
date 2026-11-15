@@ -2,6 +2,9 @@ import { LitElement, html, nothing } from 'lit';
 import type { CSSResultGroup, PropertyDeclarations, PropertyValues, TemplateResult } from 'lit';
 import { MINUTE } from '../const';
 import type { HomeAssistant, LovelaceGridOptions } from '../types/ha';
+import { MetronCardEditor } from '../ui/editor';
+import { createForm } from '../ui/form';
+import type { ConfigForm } from '../ui/form';
 import { metronStyles } from '../ui/styles';
 import { openMoreInfo } from './actions';
 import { toFormatLocale } from './format';
@@ -80,6 +83,18 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
   declare _config: C | undefined;
   declare _data: D | undefined;
   declare _tick: number;
+
+  static configForm(): ConfigForm {
+    return createForm([]);
+  }
+
+  static getConfigElement(): MetronCardEditor {
+    const editor = new MetronCardEditor();
+
+    editor.form = this.configForm();
+
+    return editor;
+  }
 
   private _dataKey: string | undefined;
 

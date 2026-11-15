@@ -242,7 +242,7 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.list(
         'devices',

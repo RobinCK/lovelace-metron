@@ -57,30 +57,37 @@ const PREFERENCES_TTL = 10 * 60 * 1000;
 const FALLBACK_KEY = {};
 const preferencesCache = new WeakMap<object, CachedPreferences>();
 
-export const parseEnergyConfig = (raw: RawConfig): EnergyConfig => {
+export const DASHBOARD_ENERGY: EnergyConfig = { entities: {}, energy_dashboard: true };
+
+export const parseEnergyConfig = (
+  raw: RawConfig,
+  keys: readonly EnergyKey[] = ENERGY_KEYS,
+): EnergyConfig => {
   const entities: Partial<Record<EnergyKey, readonly string[]>> = {};
 
-  for (const key of ENERGY_KEYS) {
+  for (const key of keys) {
     const ids = cfg.entityIds(raw, ENERGY_OPTIONS[key]);
 
     if (ids.length > 0) entities[key] = ids;
   }
 
-  return { entities, energy_dashboard: cfg.boolean(raw, 'energy_dashboard', true) };
+  return {
+    entities,
+    energy_dashboard: keys.length < 2 || cfg.boolean(raw, 'energy_dashboard', true),
+  };
 };
 
-export const energyFields = (): FormField[] => [
-  form.expandable(
-    'energy',
-    form.grid(form.energyEntity('solar_energy'), form.energyEntity('home_energy')),
-    form.grid(form.energyEntity('grid_import_energy'), form.energyEntity('grid_export_energy')),
-    form.grid(
-      form.energyEntity('battery_charge_energy'),
-      form.energyEntity('battery_discharge_energy'),
-    ),
-    form.toggle('energy_dashboard'),
-  ),
-];
+export const energyFields = (keys: readonly EnergyKey[] = ENERGY_KEYS): FormField[] => {
+  const fields = keys.map((key) => form.energyEntity(ENERGY_OPTIONS[key]));
+
+  if (fields.length < 2) return fields;
+
+  const rows = Array.from({ length: Math.ceil(fields.length / 2) }, (_, row) =>
+    form.grid(...fields.slice(row * 2, row * 2 + 2)),
+  );
+
+  return [form.expandable('energy', ...rows, form.toggle('energy_dashboard'))];
+};
 
 export const fetchEnergyPreferences = (
   hass: HomeAssistant,
@@ -128,19 +135,22 @@ export const preferenceSources = (
 export const resolveSources = async (
   hass: HomeAssistant,
   config: EnergyConfig,
+  keys: readonly EnergyKey[] = ENERGY_KEYS,
 ): Promise<EnergySources> => {
   const explicit = config.entities;
-  const missing = ENERGY_KEYS.some((key) => key !== 'home' && !explicit[key]);
+  const missing = keys.some((key) => key !== 'home' && !explicit[key]);
   const fallback =
     config.energy_dashboard && missing ? preferenceSources(await fetchEnergyPreferences(hass)) : {};
+  const pick = (key: EnergyKey): readonly string[] =>
+    keys.includes(key) ? (explicit[key] ?? (key === 'home' ? [] : fallback[key]) ?? []) : [];
 
   return {
-    solar: explicit.solar ?? fallback.solar ?? [],
-    home: explicit.home ?? [],
-    import: explicit.import ?? fallback.import ?? [],
-    export: explicit.export ?? fallback.export ?? [],
-    charge: explicit.charge ?? fallback.charge ?? [],
-    discharge: explicit.discharge ?? fallback.discharge ?? [],
+    solar: pick('solar'),
+    home: pick('home'),
+    import: pick('import'),
+    export: pick('export'),
+    charge: pick('charge'),
+    discharge: pick('discharge'),
   };
 };
 
@@ -313,7 +323,7 @@ export const counterSeries = (
 export const resolveGas = async (
   hass: HomeAssistant,
   explicit: readonly string[],
-  useDashboard: boolean,
+  useDashboard = true,
 ): Promise<string[]> => {
   if (explicit.length > 0 || !useDashboard) return [...explicit];
 

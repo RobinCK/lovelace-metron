@@ -125,7 +125,7 @@ export class MetronBudgetCard extends MetronCard<BudgetCardConfig, BudgetData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(
         form.number('budget', { min: 0, step: 1 }),

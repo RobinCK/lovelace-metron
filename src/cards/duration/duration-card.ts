@@ -10,12 +10,13 @@ import type { StatisticsResult } from '../../core/data/statistics';
 import { entityName } from '../../core/entities';
 import { formatDate, formatNumber, unitText } from '../../core/format';
 import { niceMax, quantile } from '../../core/math';
+import { firstWeekday } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { axis, header, meta, stats } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
-import { energyFields, parseEnergyConfig } from '../shared/energy-sources';
+import { DASHBOARD_ENERGY } from '../shared/energy-sources';
 import type { EnergyConfig } from '../shared/energy-sources';
 import { fetchHourlyLoad } from '../shared/hourly';
 import { periodToDate } from '../stats/periods';
@@ -119,16 +120,15 @@ export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationD
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
-      form.entity('entity', { domain: ['sensor'], deviceClass: ['power', 'energy'] }),
+      form.consumptionEntity(),
       form.entities('phases', { domain: ['sensor'], deviceClass: ['power'] }),
       form.grid(
         form.number('phase_limit', { min: 0, step: 0.1, unit: 'kW' }),
         form.number('threshold', { min: 0, step: 0.1, unit: 'kW' }),
       ),
       form.select('period', ['day', 'week', 'month', 'year']),
-      ...energyFields(),
     ]);
   }
 
@@ -139,7 +139,7 @@ export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationD
   protected parseConfig(raw: RawConfig): DurationCardConfig {
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: DASHBOARD_ENERGY,
       entity: cfg.entity(raw, 'entity'),
       phases: cfg.entityItems(raw, 'phases'),
       phase_limit: cfg.optionalNumber(raw, 'phase_limit'),
@@ -160,7 +160,7 @@ export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationD
     config: DurationCardConfig,
     hass: HomeAssistant,
   ): Promise<DurationData> {
-    const range = periodToDate(config.period, Date.now());
+    const range = periodToDate(config.period, Date.now(), firstWeekday(hass.locale));
     const [samples, phases] = await Promise.all([
       fetchHourlyLoad(hass, config.entity, config.energy, range.start, range.end),
       config.phases.length > 0

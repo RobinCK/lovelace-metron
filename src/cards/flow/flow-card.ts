@@ -38,7 +38,6 @@ export interface FlowCardConfig extends BaseConfig {
   readonly home?: string;
   readonly grid_status?: string;
   readonly invert_grid_status: boolean;
-  readonly sun?: string;
   readonly invert_grid: boolean;
   readonly invert_battery: boolean;
   readonly battery_capacity?: number;
@@ -72,6 +71,7 @@ interface Phase {
   readonly state: PhaseState;
 }
 
+const SUN = 'sun.sun';
 const LABEL_SIZE = 66;
 const SEGMENTS = 10;
 
@@ -345,7 +345,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(form.powerEntity('solar'), form.powerEntity('home')),
       form.grid(form.powerEntity('grid'), form.toggle('invert_grid')),
@@ -374,10 +374,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
         'details',
         form.entities('solar_strings', { domain: ['sensor'], deviceClass: ['power'] }),
         form.entities('grid_voltages', { domain: ['sensor'], deviceClass: ['voltage'] }),
-        form.grid(
-          form.entity('grid_frequency', { domain: ['sensor'], deviceClass: ['frequency'] }),
-          form.entity('sun', { domain: ['sun'] }),
-        ),
+        form.entity('grid_frequency', { domain: ['sensor'], deviceClass: ['frequency'] }),
         form.grid(
           form.number('voltage_min', { min: 0, unit: 'V' }),
           form.number('voltage_max', { min: 0, unit: 'V' }),
@@ -416,7 +413,6 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
       home: cfg.entity(raw, 'home'),
       grid_status: cfg.entity(raw, 'grid_status'),
       invert_grid_status: cfg.boolean(raw, 'invert_grid_status', false),
-      sun: cfg.entity(raw, 'sun') ?? 'sun.sun',
       invert_grid: cfg.boolean(raw, 'invert_grid', false),
       invert_battery: cfg.boolean(raw, 'invert_battery', false),
       battery_capacity: cfg.optionalNumber(raw, 'battery_capacity'),
@@ -448,7 +444,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
       config.battery_soc,
       config.home,
       config.grid_status,
-      config.sun,
+      SUN,
       config.battery_temperature,
       config.grid_frequency,
       ...config.solar_strings.map((item) => item.entity),
@@ -866,9 +862,9 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
   private _renderOutage(context: Context, reading: Reading): TemplateResult {
     const { config, hass, t, locale, now } = context;
     const solar = formatPower(reading.balance.solar, locale);
-    const sunUp = entityOf(hass, config.sun)?.state === 'above_horizon';
-    const rising = parseTime(attribute<string>(hass, config.sun, 'next_rising'));
-    const setting = parseTime(attribute<string>(hass, config.sun, 'next_setting'));
+    const sunUp = entityOf(hass, SUN)?.state === 'above_horizon';
+    const rising = parseTime(attribute<string>(hass, SUN, 'next_rising'));
+    const setting = parseTime(attribute<string>(hass, SUN, 'next_setting'));
     const since = parseTime(entityOf(hass, config.grid_status)?.last_changed);
     let sunLine = '';
 

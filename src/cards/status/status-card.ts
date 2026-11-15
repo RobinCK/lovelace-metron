@@ -88,7 +88,7 @@ export class MetronStatusCard extends MetronCard<StatusCardConfig> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.list('chips', ITEM_LIST_FIELDS),
       form.number('min_width', { min: 64, max: 320, unit: 'px' }),

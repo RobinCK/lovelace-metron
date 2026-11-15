@@ -5,6 +5,7 @@ import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
 import * as cfg from '../../core/config';
 import { formatDate, formatMoney, formatNumber } from '../../core/format';
+import { firstWeekday } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -17,13 +18,15 @@ import {
   parseEnergyConfig,
   resolveSources,
 } from '../shared/energy-sources';
-import type { EnergyConfig } from '../shared/energy-sources';
+import type { EnergyConfig, EnergyKey } from '../shared/energy-sources';
 import { currencyOf, parsePrice, priceOf } from '../shared/prices';
 import type { Price } from '../shared/prices';
 import { periodToDate } from '../stats/periods';
 import type { PeriodKind } from '../stats/periods';
 import { bill, DEFAULT_PLANS, nightFactor, segments, shiftedBill, zone } from './zones';
 import type { Plan } from './zones';
+
+const ENERGY: readonly EnergyKey[] = ['import', 'export'];
 
 export interface TariffCardConfig extends BaseConfig {
   readonly energy: EnergyConfig;
@@ -147,7 +150,7 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(form.number('price', { min: 0, step: 0.01 }), form.text('currency')),
       form.grid(
@@ -156,7 +159,7 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
       ),
       form.toggle('battery_shift'),
       form.object('plans'),
-      ...energyFields(),
+      ...energyFields(ENERGY),
     ]);
   }
 
@@ -169,7 +172,7 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
 
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: parseEnergyConfig(raw, ENERGY),
       price: parsePrice(raw, 'price'),
       plans: plans.length > 0 ? plans : DEFAULT_PLANS,
       battery_shift: cfg.boolean(raw, 'battery_shift', true),
@@ -192,8 +195,8 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
     hass: HomeAssistant,
   ): Promise<TariffData> {
     const now = Date.now();
-    const range = periodToDate(config.period, now);
-    const sources = await resolveSources(hass, config.energy);
+    const range = periodToDate(config.period, now, firstWeekday(hass.locale));
+    const sources = await resolveSources(hass, config.energy, ENERGY);
     const statistics = await fetchEnergyStatistics(hass, sources, range.start, range.end, 'hour');
     const hours = Array.from(
       { length: Math.ceil((range.end - range.start) / HOUR) },

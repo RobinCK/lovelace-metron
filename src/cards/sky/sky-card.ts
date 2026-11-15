@@ -29,8 +29,6 @@ import { metronStyles } from '../../ui/styles';
 export interface SkyCardConfig extends BaseConfig {
   readonly weather?: string;
   readonly solar_power?: string;
-  readonly latitude?: number;
-  readonly longitude?: number;
 }
 
 interface SkyData {
@@ -115,10 +113,9 @@ export class MetronSkyCard extends MetronCard<SkyCardConfig, SkyData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(form.entity('weather', { domain: ['weather'] }), form.powerEntity('solar_power')),
-      form.grid(form.number('latitude', { step: 0.01 }), form.number('longitude', { step: 0.01 })),
     ]);
   }
 
@@ -133,8 +130,6 @@ export class MetronSkyCard extends MetronCard<SkyCardConfig, SkyData> {
       ...cfg.base(raw),
       weather: cfg.entity(raw, 'weather'),
       solar_power: cfg.entity(raw, 'solar_power'),
-      latitude: cfg.optionalNumber(raw, 'latitude'),
-      longitude: cfg.optionalNumber(raw, 'longitude'),
     };
   }
 
@@ -177,9 +172,8 @@ export class MetronSkyCard extends MetronCard<SkyCardConfig, SkyData> {
   }
 
   private _location(context: Context): [number, number] | undefined {
-    const { config, hass } = context;
-    const latitude = config.latitude ?? hass.config?.latitude;
-    const longitude = config.longitude ?? hass.config?.longitude;
+    const latitude = context.hass.config?.latitude;
+    const longitude = context.hass.config?.longitude;
 
     return latitude === undefined || longitude === undefined ? undefined : [latitude, longitude];
   }

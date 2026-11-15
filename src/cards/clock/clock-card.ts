@@ -80,7 +80,7 @@ export class MetronClockCard extends MetronCard<ClockCardConfig, ClockData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([form.toggle('forecast'), ...energyFields()]);
   }
 

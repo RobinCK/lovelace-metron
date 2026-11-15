@@ -3,6 +3,7 @@ import type { TranslationKey } from '../core/i18n';
 
 export interface SelectorField {
   readonly name: string;
+  readonly label?: string;
   readonly required?: boolean;
   readonly selector: Readonly<Record<string, unknown>>;
 }
@@ -52,6 +53,11 @@ export const energyEntity = (name: string, required = false): SelectorField =>
 export const powerEntity = (name: string, required = false): SelectorField =>
   entity(name, { domain: ['sensor'], deviceClass: ['power'] }, required);
 
+export const consumptionEntity = (): SelectorField => ({
+  ...entity('entity', { domain: ['sensor'], deviceClass: ['power', 'energy'] }),
+  label: 'consumption',
+});
+
 export const entities = (
   name: string,
   options: { readonly domain?: readonly string[]; readonly deviceClass?: readonly string[] } = {},
@@ -93,7 +99,15 @@ export const number = (
   },
 });
 
-export const select = (name: string, options: readonly string[]): SelectorField => ({
+export interface SelectOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+export const select = (
+  name: string,
+  options: readonly (string | SelectOption)[],
+): SelectorField => ({
   name,
   selector: { select: { mode: 'dropdown', options } },
 });
@@ -134,7 +148,13 @@ export const expandable = (title: string, ...schema: FormField[]): ExpandableFie
 });
 
 export const COMMON_FIELDS: readonly FormField[] = [
-  grid(text('title'), select('language', ['', 'en', 'uk'])),
+  grid(
+    text('title'),
+    select('language', [
+      { value: 'en', label: 'English' },
+      { value: 'uk', label: 'Українська' },
+    ]),
+  ),
 ];
 
 const humanize = (name: string): string => {
@@ -170,9 +190,9 @@ export const createForm = (schema: readonly FormField[]): ConfigForm => {
   return {
     schema: translateTitles([...COMMON_FIELDS, ...schema], translate),
     computeLabel: (field) => {
-      if (!('name' in field) || field.name === '') return '';
+      if (!('selector' in field)) return '';
 
-      return translate(field.name);
+      return translate(field.label ?? field.name);
     },
   };
 };

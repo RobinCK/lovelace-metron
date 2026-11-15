@@ -8,7 +8,14 @@ import { overlap } from '../../core/data/history';
 import type { Interval } from '../../core/data/history';
 import { formatDate, formatMonth, formatNumber, formatWeekday, unitText } from '../../core/format';
 import type { TranslationKey } from '../../core/i18n';
-import { addDays, addMonths, startOfDay, startOfMonth, startOfWeek } from '../../core/time';
+import {
+  addDays,
+  addMonths,
+  firstWeekday,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+} from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import { ring } from '../../ui/charts';
 import * as form from '../../ui/form';
@@ -49,7 +56,6 @@ export interface CalendarCardConfig extends BaseConfig {
   readonly high: number;
   readonly low: number;
   readonly navigation: boolean;
-  readonly first_weekday: number;
 }
 
 interface CalendarData {
@@ -195,7 +201,7 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
     this._offset = 0;
   }
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(form.select('metric', [...CALENDAR_METRICS]), form.toggle('navigation')),
       form.grid(
@@ -208,7 +214,6 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
         }),
         form.toggle('invert_grid_status'),
       ),
-      form.select('first_weekday', ['1', '0', '6']),
       ...energyFields(),
     ]);
   }
@@ -227,7 +232,6 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
       high: cfg.number(raw, 'high', 70, { min: 0, max: 100 }),
       low: cfg.number(raw, 'low', 40, { min: 0, max: 100 }),
       navigation: cfg.boolean(raw, 'navigation', true),
-      first_weekday: cfg.number(raw, 'first_weekday', 1, { min: 0, max: 6 }),
     };
   }
 
@@ -241,7 +245,7 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
   ): Promise<CalendarData> {
     const now = Date.now();
     const month = addMonths(startOfMonth(now), this._offset);
-    const gridStart = startOfWeek(month, config.first_weekday);
+    const gridStart = startOfWeek(month, firstWeekday(hass.locale));
     const end = addMonths(month, 1);
     const sources = await resolveSources(hass, config.energy);
     const starts = Array.from({ length: Math.round((end - gridStart) / DAY) + 1 }, (_, index) =>

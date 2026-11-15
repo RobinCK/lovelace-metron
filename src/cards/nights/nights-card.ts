@@ -22,7 +22,9 @@ import {
   parseEnergyConfig,
   resolveSources,
 } from '../shared/energy-sources';
-import type { EnergyConfig } from '../shared/energy-sources';
+import type { EnergyConfig, EnergyKey } from '../shared/energy-sources';
+
+const ENERGY: readonly EnergyKey[] = ['import'];
 
 export interface NightsCardConfig extends BaseConfig {
   readonly energy: EnergyConfig;
@@ -147,7 +149,7 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.entity('battery_soc', { domain: ['sensor'], deviceClass: ['battery'] }, true),
       form.grid(
@@ -156,7 +158,7 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
       ),
       form.grid(form.time('evening'), form.time('morning')),
       form.number('days', { min: 7, max: 60 }),
-      ...energyFields(),
+      ...energyFields(ENERGY),
     ]);
   }
 
@@ -167,7 +169,7 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
   protected parseConfig(raw: RawConfig): NightsCardConfig {
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: parseEnergyConfig(raw, ENERGY),
       battery_soc: cfg.entity(raw, 'battery_soc') ?? '',
       battery_capacity: cfg.optionalNumber(raw, 'battery_capacity'),
       battery_reserve: cfg.number(raw, 'battery_reserve', 20, { min: 0, max: 100 }),
@@ -196,7 +198,7 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
     const now = Date.now();
     const today = startOfDay(now);
     const first = addDays(today, -config.days);
-    const sources = await resolveSources(hass, config.energy);
+    const sources = await resolveSources(hass, config.energy, ENERGY);
     const [soc, energy] = await Promise.all([
       fetchStatistics(hass, {
         entityIds: [config.battery_soc],

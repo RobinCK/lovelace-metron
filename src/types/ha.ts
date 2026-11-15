@@ -22,10 +22,14 @@ export type NumberFormat =
 
 export type TimeFormat = 'language' | 'system' | '12' | '24';
 
+export type Weekday =
+  'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
+
 export interface HassLocale {
   readonly language: string;
   readonly number_format?: NumberFormat;
   readonly time_format?: TimeFormat;
+  readonly first_weekday?: Weekday | 'language';
 }
 
 export interface HassThemes {

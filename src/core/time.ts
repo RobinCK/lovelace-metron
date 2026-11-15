@@ -1,3 +1,5 @@
+import type { HassLocale, Weekday } from '../types/ha';
+
 export const startOfDay = (time: number): number => {
   const date = new Date(time);
 
@@ -36,6 +38,44 @@ export const startOfYear = (time: number): number => {
   date.setMonth(0);
 
   return date.getTime();
+};
+
+const WEEKDAYS: readonly Weekday[] = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+];
+
+interface WeekInfo {
+  readonly firstDay?: number;
+}
+
+type WeekLocale = Intl.Locale & {
+  readonly weekInfo?: WeekInfo;
+  readonly getWeekInfo?: () => WeekInfo;
+};
+
+const languageWeekday = (language: string): number => {
+  try {
+    const locale: WeekLocale = new Intl.Locale(language);
+    const firstDay = (locale.getWeekInfo?.() ?? locale.weekInfo)?.firstDay;
+
+    return firstDay === undefined ? 1 : firstDay % 7;
+  } catch {
+    return 1;
+  }
+};
+
+export const firstWeekday = (locale: HassLocale | undefined): number => {
+  const setting = locale?.first_weekday;
+
+  if (setting && setting !== 'language') return WEEKDAYS.indexOf(setting);
+
+  return languageWeekday(locale?.language ?? 'en');
 };
 
 export const startOfWeek = (time: number, firstDay = 1): number => {

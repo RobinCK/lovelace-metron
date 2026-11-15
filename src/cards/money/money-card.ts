@@ -159,7 +159,7 @@ export class MetronMoneyCard extends MetronCard<MoneyCardConfig, MoneyData> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.grid(
         form.number('electricity_price', { min: 0, step: 0.01 }),

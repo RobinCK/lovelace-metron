@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import * as cfg from '../src/core/config';
-import { formatEnergy, formatNumber, formatPower, toFormatLocale } from '../src/core/format';
+import {
+  formatEnergy,
+  formatMonth,
+  formatNumber,
+  formatPower,
+  formatTime,
+  toFormatLocale,
+} from '../src/core/format';
 import { createLocalize } from '../src/core/i18n';
 import { niceMax, quantile } from '../src/core/math';
 
@@ -20,6 +27,16 @@ describe('format', () => {
     const uk = toFormatLocale({ language: 'uk' }, 'uk', { kW: 'кВт' });
 
     expect(formatPower(2060, uk)).toEqual({ value: '2,06', unit: 'кВт' });
+  });
+
+  it('names months in the card language whatever the time format', () => {
+    const time = new Date(2026, 10, 15, 22, 5).getTime();
+    const system = toFormatLocale({ language: 'en', time_format: 'system' }, 'en');
+    const fixed = toFormatLocale({ language: 'en', time_format: '24' }, 'en');
+
+    expect(system.timeLocale).toBe('en');
+    expect(formatMonth(time, system, true)).toBe('November');
+    expect(formatTime(time, fixed)).toBe('22:05');
   });
 });
 

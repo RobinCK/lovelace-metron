@@ -1,11 +1,14 @@
 import { REPOSITORY_URL, VERSION } from './const';
 import { CARDS } from './registry';
+import { EDITOR_TAG, MetronCardEditor } from './ui/editor';
 
 const define = (tag: string, element: CustomElementConstructor): void => {
   if (customElements.get(tag)) return;
 
   customElements.define(tag, element);
 };
+
+define(EDITOR_TAG, MetronCardEditor);
 
 window.customCards ??= [];
 

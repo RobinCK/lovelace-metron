@@ -15,7 +15,7 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { colorOf, header, pill } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
-import { energyFields, parseEnergyConfig } from '../shared/energy-sources';
+import { DASHBOARD_ENERGY } from '../shared/energy-sources';
 import type { EnergyConfig } from '../shared/energy-sources';
 import { fetchHourlyLoad, inWindow } from '../shared/hourly';
 import { currencyOf, parsePrice, priceOf } from '../shared/prices';
@@ -179,9 +179,9 @@ export class MetronBaseloadCard extends MetronCard<BaseloadCardConfig, BaseloadD
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
-      form.entity('entity', { domain: ['sensor'], deviceClass: ['power', 'energy'] }),
+      form.consumptionEntity(),
       form.grid(
         form.number('days', { min: 7, max: 90 }),
         form.number('step_threshold', { min: 5, unit: 'W' }),
@@ -196,7 +196,6 @@ export class MetronBaseloadCard extends MetronCard<BaseloadCardConfig, BaseloadD
         color: { selector: { text: {} } },
       }),
       form.grid(form.number('price', { min: 0, step: 0.01 }), form.text('currency')),
-      ...energyFields(),
     ]);
   }
 
@@ -207,7 +206,7 @@ export class MetronBaseloadCard extends MetronCard<BaseloadCardConfig, BaseloadD
   protected parseConfig(raw: RawConfig): BaseloadCardConfig {
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: DASHBOARD_ENERGY,
       entity: cfg.entity(raw, 'entity'),
       days: cfg.number(raw, 'days', 30, { min: 7, max: 90 }),
       night_start: Math.floor(parseClock(cfg.text(raw, 'night_start'), 60) / 60),

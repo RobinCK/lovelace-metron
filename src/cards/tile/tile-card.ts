@@ -101,7 +101,7 @@ export class MetronTileCard extends MetronCard<TileCardConfig, Sparklines> {
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
       form.list('tiles', ITEM_LIST_FIELDS),
       form.grid(form.number('columns', { min: 1, max: 6 }), form.toggle('show_time')),

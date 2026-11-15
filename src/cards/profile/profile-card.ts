@@ -7,7 +7,7 @@ import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import { deviceClass } from '../../core/entities';
 import { formatNumber, formatWeekday, unitText } from '../../core/format';
-import { addDays, startOfDay, startOfWeek } from '../../core/time';
+import { addDays, firstWeekday, startOfDay, startOfWeek } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
@@ -15,10 +15,9 @@ import { colorOf, header, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
 import {
-  energyFields,
   energySeries,
   fetchEnergyStatistics,
-  parseEnergyConfig,
+  DASHBOARD_ENERGY,
   resolveSources,
 } from '../shared/energy-sources';
 import type { EnergyConfig } from '../shared/energy-sources';
@@ -28,7 +27,6 @@ export interface ProfileCardConfig extends BaseConfig {
   readonly entity?: string;
   readonly weeks: number;
   readonly color?: string;
-  readonly first_weekday: number;
   readonly night_start: number;
   readonly night_end: number;
 }
@@ -92,15 +90,14 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
     `,
   ];
 
-  static getConfigForm(): ConfigForm {
+  static override configForm(): ConfigForm {
     return form.createForm([
-      form.entity('entity', { domain: ['sensor'], deviceClass: ['power', 'energy'] }),
+      form.consumptionEntity(),
       form.grid(form.number('weeks', { min: 1, max: 12 }), form.text('color')),
       form.grid(
         form.number('night_start', { min: 0, max: 23, unit: 'h' }),
         form.number('night_end', { min: 0, max: 23, unit: 'h' }),
       ),
-      ...energyFields(),
     ]);
   }
 
@@ -111,11 +108,10 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
   protected parseConfig(raw: RawConfig): ProfileCardConfig {
     return {
       ...cfg.base(raw),
-      energy: parseEnergyConfig(raw),
+      energy: DASHBOARD_ENERGY,
       entity: cfg.entity(raw, 'entity'),
       weeks: cfg.number(raw, 'weeks', 4, { min: 1, max: 12 }),
       color: cfg.text(raw, 'color'),
-      first_weekday: cfg.number(raw, 'first_weekday', 1, { min: 0, max: 6 }),
       night_start: cfg.number(raw, 'night_start', 1, { min: 0, max: 23 }),
       night_end: cfg.number(raw, 'night_end', 5, { min: 0, max: 23 }),
     };
@@ -137,14 +133,15 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
     const end = startOfDay(now);
     const start = addDays(end, -7 * config.weeks);
     const hourly = await this._hourly(config, hass, start, end);
-    const weekStart = startOfWeek(now, config.first_weekday);
+    const firstDay = firstWeekday(hass.locale);
+    const weekStart = startOfWeek(now, firstDay);
     const buckets: number[][][] = Array.from({ length: 7 }, () =>
       Array.from({ length: 24 }, () => []),
     );
 
     for (const sample of hourly) {
       const date = new Date(sample.time);
-      const row = (date.getDay() - config.first_weekday + 7) % 7;
+      const row = (date.getDay() - firstDay + 7) % 7;
 
       buckets[row]?.[date.getHours()]?.push(sample.value);
     }
