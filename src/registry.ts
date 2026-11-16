@@ -11,8 +11,10 @@ import { MetronFlowCard } from './cards/flow/flow-card';
 import { MetronForecastAccuracyCard } from './cards/forecast-accuracy/forecast-accuracy-card';
 import { MetronForecastCard } from './cards/forecast/forecast-card';
 import { MetronGasCard } from './cards/gas/gas-card';
+import { MetronHeadroomCard } from './cards/headroom/headroom-card';
 import { MetronHistoryCard } from './cards/history/history-card';
 import { MetronLiveCard } from './cards/live/live-card';
+import { MetronLoadCard } from './cards/load/load-card';
 import { MetronLossesCard } from './cards/losses/losses-card';
 import { MetronMoneyCard } from './cards/money/money-card';
 import { MetronNightsCard } from './cards/nights/nights-card';
@@ -235,5 +237,19 @@ export const CARDS: readonly CardDefinition[] = [
     name: 'Metron · Solar expansion',
     description:
       'A year model of more panels or a bigger battery: self-sufficiency, import and money.',
+  },
+  {
+    type: 'metron-load-card',
+    element: MetronLoadCard,
+    name: 'Metron · Load now',
+    description:
+      'Live consumption against the input limit, per phase with imbalance, the last hour and today.',
+  },
+  {
+    type: 'metron-headroom-card',
+    element: MetronHeadroomCard,
+    name: 'Metron · Outage headroom',
+    description:
+      'What can still be switched on: free power per phase and whether the battery lasts until power returns.',
   },
 ];

@@ -4,7 +4,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/RobinCK/lovelace-metron)](https://github.com/RobinCK/lovelace-metron/releases/latest)
 [![CI](https://github.com/RobinCK/lovelace-metron/actions/workflows/ci.yml/badge.svg)](https://github.com/RobinCK/lovelace-metron/actions/workflows/ci.yml)
 
-Thirty Home Assistant Lovelace cards for energy, solar, battery, gas and money: live flows,
+Thirty-two Home Assistant Lovelace cards for energy, solar, battery, gas and money: live flows,
 days, months and years of statistics, forecasts, bills and analysis of how the house uses energy.
 One resource, one look, every card configurable from the visual editor or YAML.
 
@@ -27,7 +27,8 @@ One resource, one look, every card configurable from the visual editor or YAML.
   per card or globally from a theme.
 - **Translated.** English and Ukrainian, chosen from the Home Assistant language or per card; any
   text can be replaced with `labels`.
-- **Visual editor.** Every card has a form editor; lists of entities use the object editor.
+- **Visual editor.** Every card has a form editor; entity pickers show entity IDs, so sensors
+  with the same name are easy to tell apart.
 
 ## Installation
 
@@ -86,6 +87,8 @@ sensors with the same name are easy to tell apart.
 | Tiles             | `metron-tile-card`              | Entity tiles with hourly sparklines                                     |
 | Live power        | `metron-live-card`              | Minute bars for the last hour                                           |
 | Consumers         | `metron-devices-card`           | Devices: power, energy today, run state, unaccounted                    |
+| Load now          | `metron-load-card`              | Consumption against the input limit, phases and their imbalance         |
+| Outage headroom   | `metron-headroom-card`          | What can be switched on: free power per phase and the battery           |
 | Energy day        | `metron-energy-day-card`        | Half-hour production and consumption of a day, sources and destinations |
 | Metrics           | `metron-stats-card`             | Self-consumption, self-sufficiency, net grid with comparison            |
 | Month history     | `metron-history-card`           | Daily energy of a month by source                                       |
@@ -304,6 +307,87 @@ devices:
 Energy today comes from long-term statistics, so lifetime counters and daily meters both work.
 Without an energy sensor the energy is integrated from 5-minute power statistics. A `status`
 entity replaces the run state text, `cycle: true` shows when the last run finished.
+
+### Load now — `custom:metron-load-card`
+
+<img src="docs/images/load.png" width="480" alt="Load now">
+<img src="docs/images/load-single.png" width="480" alt="Load now with one input">
+
+Total consumption now against the input limit, every phase against its breaker, the imbalance
+between the phases, the last hour by minute and today. With one phase, or only a total sensor, the
+card shows the total, the limit and the last hour.
+
+```yaml
+type: custom:metron-load-card
+limit: 15
+breaker: 25
+phases:
+  - power: sensor.house_l1_power
+    current: sensor.house_l1_current
+    voltage: sensor.house_l1_voltage
+  - power: sensor.house_l2_power
+    current: sensor.house_l2_current
+    voltage: sensor.house_l2_voltage
+  - power: sensor.house_l3_power
+    current: sensor.house_l3_current
+    voltage: sensor.house_l3_voltage
+```
+
+| Option                 | Default       |                                                                         |
+| ---------------------- | ------------- | ----------------------------------------------------------------------- |
+| `power`                | sum of phases | total power sensor                                                      |
+| `phases`               | —             | up to three phases: `power`, optional `current`, `voltage` and `name`   |
+| `limit`                | —             | allowed input power, kW                                                 |
+| `breaker`              | —             | breaker per phase, A; a phase with a `current` sensor is measured by it |
+| `warning` / `critical` | `70` / `90`   | % of the limit for the amber and the red level                          |
+| `minutes`              | `60`          | chart window                                                            |
+
+Without `limit` the input limit is the breaker on every phase; without `breaker` every phase gets
+an equal share of `limit`. Energy today and the peak come from the 5-minute statistics of the power
+sensors.
+
+### Outage headroom — `custom:metron-headroom-card`
+
+<img src="docs/images/headroom.png" width="480" alt="Outage headroom">
+
+What can still be switched on from the inverter: free power on every phase and, for every
+appliance, whether it fits on its phase and whether the battery still lasts until the power comes
+back.
+
+```yaml
+type: custom:metron-headroom-card
+phase_limit: 4
+grid_status: binary_sensor.deye_grid_connected
+power_on: sensor.next_power_on
+battery_soc: sensor.deye_battery_soc
+battery_capacity: 32
+battery_reserve: 10
+phases:
+  - power: sensor.deye_load_l1_power
+  - power: sensor.deye_load_l2_power
+  - power: sensor.deye_load_l3_power
+appliances:
+  - name: Kettle
+    power: 2200
+    phase: 2
+    minutes: 3
+  - name: Water heater
+    power: 2000
+    phase: 3
+    minutes: 60
+```
+
+| Option                                                 | Default      |                                                                         |
+| ------------------------------------------------------ | ------------ | ----------------------------------------------------------------------- |
+| `phases`                                               | —            | inverter load per phase: `power` and `name`                             |
+| `phase_limit`                                          | —            | inverter output per phase, kW                                           |
+| `appliances`                                           | —            | `name`, `power` in W, `phase` (1–3, any when omitted), `minutes` (`30`) |
+| `grid_status` / `invert_grid_status`                   | —            | the battery check runs during an outage, without it always              |
+| `power_on`                                             | —            | when the power returns: a timestamp sensor or minutes until it          |
+| `battery_soc` / `battery_capacity` / `battery_reserve` | — / — / `20` | battery runtime at the current load                                     |
+
+Every appliance gets **Fits**, **Battery won’t last** (it fits on the phase, but the battery would
+reach the reserve before the power returns) or **No room** on its phase.
 
 ### Energy sensors for statistics cards
 
