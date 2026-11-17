@@ -472,15 +472,17 @@ export class MetronBarsCard extends MetronCard<BarsCardConfig, BarsData> {
     const step = config.period === 'day' ? 7 : config.period === 'week' ? 4 : 3;
     const positions = new Set<number>();
 
+    const keep = (anchor: number): void => {
+      [...positions].forEach((position) => {
+        if (position !== anchor && Math.abs(position - anchor) < 2) positions.delete(position);
+      });
+      positions.add(anchor);
+    };
+
     for (let position = 0; position < count; position += step) positions.add(position);
 
-    if (config.period === 'day') positions.add(count - 1);
-    if (current >= 0) {
-      [...positions].forEach((position) => {
-        if (position !== current && Math.abs(position - current) < 2) positions.delete(position);
-      });
-      positions.add(current);
-    }
+    if (config.period === 'day') keep(count - 1);
+    if (current >= 0) keep(current);
 
     return [...positions]
       .sort((a, b) => a - b)
