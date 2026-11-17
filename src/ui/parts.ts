@@ -151,7 +151,27 @@ export interface Navigation {
   readonly canNext: boolean;
   readonly previousLabel: string;
   readonly nextLabel: string;
+  readonly reset?: () => void;
+  readonly resetLabel?: string;
 }
+
+const navigatorLabel = (navigation: Navigation): TemplateResult => {
+  const reset = navigation.reset;
+
+  if (!reset || !navigation.canNext) return html`<span>${navigation.label}</span>`;
+
+  return html`<button
+    type="button"
+    class="label"
+    title=${navigation.resetLabel ?? nothing}
+    @click=${(event: Event) => {
+      event.stopPropagation();
+      reset();
+    }}
+  >
+    ${navigation.label}
+  </button>`;
+};
 
 export const navigator = (navigation: Navigation): TemplateResult =>
   html`<div class="nav">
@@ -165,7 +185,7 @@ export const navigator = (navigation: Navigation): TemplateResult =>
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
     </button>
-    <span>${navigation.label}</span>
+    ${navigatorLabel(navigation)}
     <button
       type="button"
       aria-label=${navigation.nextLabel}

@@ -499,6 +499,17 @@ export const metronStyles = css`
     cursor: pointer;
   }
 
+  .nav button.label {
+    width: auto;
+    height: auto;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: none;
+  }
+
   .nav button:disabled {
     color: var(--m-muted);
     opacity: 0.45;

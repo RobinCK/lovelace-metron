@@ -105,6 +105,7 @@ Available sizes and the default of every card:
   medium), Consumers (up to four devices medium), Outage headroom (up to three appliances medium),
   Losses (up to three stages medium), PV strings (up to four strings medium), Period comparison
   (up to five metrics medium), Day clock (medium).
+- **Small, medium, large; medium by default:** Period bars.
 - **Small, medium; medium by default:** Metrics, Month history, Year by months, Load profile,
   Solar year, Heating season, Tariff zones, Monthly limit, Forecast accuracy, Week ahead, Sun and
   sky, Base load, Nights on battery, Load duration, Normal corridor.
@@ -124,6 +125,7 @@ Available sizes and the default of every card:
 | Energy day        | `metron-energy-day-card`        | Half-hour production and consumption of a day, sources and destinations |
 | Metrics           | `metron-stats-card`             | Self-consumption, self-sufficiency, net grid with comparison            |
 | Month history     | `metron-history-card`           | Daily energy of a month by source                                       |
+| Period bars       | `metron-bars-card`              | Any counter by hour, day, week or month with navigation                 |
 | Year by months    | `metron-year-card`              | Monthly generation, consumption and net balance                         |
 | Period comparison | `metron-week-compare-card`      | This week against last week, metric by metric                           |
 | Daily calendar    | `metron-calendar-card`          | A month of self-sufficiency rings with outage marks                     |
@@ -494,6 +496,33 @@ the change against the previous month. `mode: production` splits solar productio
 battery and export instead.
 
 Options: `mode` (`consumption` / `production`), `navigation` (`true`), `height` (`120`).
+
+### Period bars — `custom:metron-bars-card`
+
+Bars of any counter with statistics — gas, water, electricity — by hour, day, week or month. The
+arrows in the top right corner move the window one period back and forth; the date between them
+brings it back to the current period. The card shows the total of the window with the change
+against the previous one (up to the same moment for the current window), the average and the
+maximum per bar, and the average line on the chart. The current bar is drawn lighter and includes
+the value since the last statistics hour.
+
+```yaml
+type: custom:metron-bars-card
+entity: sensor.gas_meter
+period: day
+```
+
+| `period` | One window                    | Arrows move by |
+| -------- | ----------------------------- | -------------- |
+| `hour`   | the hours of a day            | a day          |
+| `day`    | the days of a month           | a month        |
+| `week`   | `weeks` weeks up to this week | `weeks` weeks  |
+| `month`  | the months of a year          | a year         |
+
+Options: `entity` (required), `period` (`day`), `weeks` (`13`), `color` (a color name — `gas`,
+`solar`, `home`, `battery`, `grid`, `cold` — or any CSS color; by the device class when omitted),
+`unit` (from the entity when omitted), `digits` (decimals; automatic when omitted), `navigation`
+(`true`), `compare` (`true`), `height` (`140`, for `size: auto`).
 
 ### Year by months — `custom:metron-year-card`
 

@@ -184,7 +184,10 @@ export const sumSeries = (series: readonly Series[], length: number): Series =>
     return values.length === 0 ? undefined : values.reduce((total, value) => total + value, 0);
   });
 
-const tailOf = (rows: readonly StatisticRow[] | undefined, current: number | undefined): number => {
+export const tailOf = (
+  rows: readonly StatisticRow[] | undefined,
+  current: number | undefined,
+): number => {
   const last = rows?.[rows.length - 1];
   const state = last?.state;
 

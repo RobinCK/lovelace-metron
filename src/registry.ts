@@ -1,3 +1,4 @@
+import { MetronBarsCard } from './cards/bars/bars-card';
 import { MetronBaseloadCard } from './cards/baseload/baseload-card';
 import { MetronBudgetCard } from './cards/budget/budget-card';
 import { MetronCalendarCard } from './cards/calendar/calendar-card';
@@ -89,6 +90,13 @@ export const CARDS: readonly CardDefinition[] = [
     element: MetronHistoryCard,
     name: 'Metron · Month history',
     description: 'Daily consumption or production of a month split by source, with averages.',
+  },
+  {
+    type: 'metron-bars-card',
+    element: MetronBarsCard,
+    name: 'Metron · Period bars',
+    description:
+      'Any counter by hour, day, week or month with navigation, the average, the maximum and a comparison.',
   },
   {
     type: 'metron-year-card',

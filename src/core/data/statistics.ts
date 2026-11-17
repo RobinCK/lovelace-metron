@@ -22,6 +22,7 @@ export interface StatisticsRequest {
   readonly end?: number;
   readonly period: StatisticPeriod;
   readonly types: readonly StatisticType[];
+  readonly units?: Readonly<Record<string, string>>;
 }
 
 export type StatisticsResult = ReadonlyMap<string, readonly StatisticRow[]>;
@@ -52,7 +53,7 @@ export const fetchStatistics = async (
     statistic_ids: entityIds,
     period: request.period,
     types: request.types,
-    units: STATISTIC_UNITS,
+    units: request.units ?? STATISTIC_UNITS,
   });
 
   return new Map(
