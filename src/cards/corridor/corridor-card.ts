@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { HOUR, MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { deviceClass, readNumber } from '../../core/entities';
 import {
@@ -20,6 +21,8 @@ import type { ConfigForm } from '../../ui/form';
 import { axis, header, meta, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
+import type { TipRow } from '../../ui/tip';
 import { DASHBOARD_ENERGY } from '../shared/energy-sources';
 import type { EnergyConfig } from '../shared/energy-sources';
 import { fetchHourlyLoad } from '../shared/hourly';
@@ -52,6 +55,8 @@ type Context = CardContext<CorridorCardConfig, CorridorData>;
 const CHART_HEIGHT = 140;
 
 export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -222,7 +227,9 @@ export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorD
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, locale, now } = context;
+    const { config, data, size, t, locale, now } = context;
+    const small = size === 'small';
+    const chart = small ? 96 : size === 'medium' ? 156 : CHART_HEIGHT;
     const title = config.title ?? t('corridor.title');
 
     if (!data)
@@ -237,7 +244,7 @@ export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorD
     const max = niceMax(
       Math.max(1, ...data.bands.map((band) => band.high ?? 0), ...today.map((value) => value ?? 0)),
     );
-    const px = (value: number): number => (Math.min(max, Math.max(0, value)) / max) * CHART_HEIGHT;
+    const px = (value: number): number => (Math.min(max, Math.max(0, value)) / max) * chart;
     const currentHour = new Date(now).getHours();
     const outside = today.map((value, hour) => {
       const band = data.bands[hour];
@@ -250,10 +257,47 @@ export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorD
     });
     const lastOut = outside.reduce((found, value, hour) => (value !== 0 ? hour : found), -1);
     const kw = unitText('kW', locale);
+    const value = (number: number | undefined): string =>
+      number === undefined ? '—' : `${formatNumber(number, 2, locale)} ${kw}`;
+    const hover = slotHover(data.bands.length, (hour) => {
+      const band = data.bands[hour];
+      const rows: TipRow[] = [];
+
+      if (today[hour] !== undefined) {
+        rows.push({
+          label: t('common.today'),
+          value: value(today[hour]),
+          color: outside[hour] !== 0 ? 'var(--m-warn)' : 'var(--m-home)',
+        });
+      }
+
+      if (band?.median !== undefined) {
+        rows.push({
+          label: t('corridor.median'),
+          value: value(band.median),
+          color: 'var(--m-text-2)',
+        });
+      }
+
+      if (band?.low !== undefined && band.high !== undefined) {
+        rows.push({
+          label: t('corridor.range'),
+          value: `${formatNumber(band.low, 2, locale)}–${value(band.high)}`,
+          color: 'color-mix(in srgb, var(--m-text-2) 35%, transparent)',
+        });
+      }
+
+      return rows.length === 0
+        ? undefined
+        : {
+            title: `${String(hour).padStart(2, '0')}:00–${String((hour + 1) % 24).padStart(2, '0')}:00`,
+            rows,
+          };
+    });
 
     return html`
       ${header(title, meta(scope))}
-      <div class="legend">
+      <div class="legend" style=${size === 'auto' || size === 'large' ? '' : 'display:none'}>
         <span
           ><i style="--c:color-mix(in srgb, var(--m-text-2) 35%, transparent)"></i>${t(
             'corridor.usual',
@@ -268,14 +312,20 @@ export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorD
         <span><i style="--c:var(--m-warn)"></i>${t('corridor.outside')}</span>
       </div>
       <div class="plot">
-        <div class="scale" style="height:${CHART_HEIGHT}px">
+        <div class="scale" style="height:${chart}px">
           <span style="top:0">${formatNumber(max, 0, locale)} ${kw}</span>
           <span style="top:50%">${formatNumber(max / 2, 0, locale)}</span>
           <span style="top:100%">0</span>
         </div>
-        <div class="hours">
+        <div
+          class="hours"
+          style="height:${chart}px;touch-action:pan-y"
+          @pointermove=${hover.move}
+          @pointerdown=${hover.move}
+          @pointerleave=${hover.leave}
+        >
           ${data.bands.map((band, hour) => {
-            const value = today[hour];
+            const current = today[hour];
 
             return html`<div class="hour">
               ${
@@ -288,11 +338,11 @@ export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorD
               }
               ${band.median === undefined ? nothing : html`<span class="median" style="bottom:${(px(band.median) - 1).toFixed(1)}px"></span>`}
               ${
-                value === undefined
+                current === undefined
                   ? nothing
                   : html`<span
                       class="today"
-                      style="height:${px(value).toFixed(1)}px;background:${outside[hour] !== 0 ? 'var(--m-warn)' : 'var(--m-home)'};opacity:${hour === currentHour ? 0.7 : 1}"
+                      style="height:${px(current).toFixed(1)}px;background:${outside[hour] !== 0 ? 'var(--m-warn)' : 'var(--m-home)'};opacity:${hour === currentHour ? 0.7 : 1}"
                     ></span>`
               }
             </div>`;
@@ -301,7 +351,7 @@ export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorD
             lastOut >= 0 && today[lastOut] !== undefined
               ? html`<span
                   class="note"
-                  style="bottom:${Math.min(CHART_HEIGHT - 12, px(today[lastOut] ?? 0) + 4).toFixed(1)}px;${lastOut > 16 ? `right:${(((24 - lastOut) / 24) * 100).toFixed(1)}%` : `left:${(((lastOut + 1) / 24) * 100).toFixed(1)}%`}"
+                  style="bottom:${Math.min(chart - 12, px(today[lastOut] ?? 0) + 4).toFixed(1)}px;${lastOut > 16 ? `right:${(((24 - lastOut) / 24) * 100).toFixed(1)}%` : `left:${(((lastOut + 1) / 24) * 100).toFixed(1)}%`}"
                   >${t((outside[lastOut] ?? 0) > 0 ? 'corridor.above' : 'corridor.below', {
                     value: `${formatSigned(outside[lastOut] ?? 0, 1, locale)} ${kw}`,
                   })}</span
@@ -310,15 +360,19 @@ export class MetronCorridorCard extends MetronCard<CorridorCardConfig, CorridorD
           }
         </div>
         <span></span>
-        ${axis([
-          { at: 0, label: '00' },
-          { at: 0.25, label: '06' },
-          { at: 0.5, label: '12' },
-          { at: 0.75, label: '18' },
-          { at: 1, label: '24' },
-        ])}
+        ${
+          small
+            ? nothing
+            : axis([
+                { at: 0, label: '00' },
+                { at: 0.25, label: '06' },
+                { at: 0.5, label: '12' },
+                { at: 0.75, label: '18' },
+                { at: 1, label: '24' },
+              ])
+        }
       </div>
-      ${stats(this._summary(context, data, today, outside, weekday))}
+      ${small ? nothing : stats(this._summary(context, data, today, outside, weekday))}
     `;
   }
 

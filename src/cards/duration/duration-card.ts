@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import type { EntityItem } from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
@@ -16,6 +17,7 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { axis, header, meta, stats } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
 import { DASHBOARD_ENERGY } from '../shared/energy-sources';
 import type { EnergyConfig } from '../shared/energy-sources';
 import { fetchHourlyLoad } from '../shared/hourly';
@@ -45,6 +47,8 @@ const CHART_HEIGHT = 120;
 const BARS = 100;
 
 export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -73,8 +77,9 @@ export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationD
         display: flex;
         align-items: flex-end;
         gap: 1px;
-        height: ${CHART_HEIGHT}px;
+        height: var(--chart, ${CHART_HEIGHT}px);
         border-bottom: 1px solid var(--m-line);
+        touch-action: pan-y;
       }
 
       .curve > span {
@@ -191,7 +196,9 @@ export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationD
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, locale } = context;
+    const { config, data, size, t, locale } = context;
+    const small = size === 'small';
+    const chart = small ? 90 : size === 'medium' ? 104 : CHART_HEIGHT;
     const title = config.title ?? t('duration.title');
 
     if (!data)
@@ -207,7 +214,7 @@ export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationD
     const kw = unitText('kW', locale);
     const top = niceMax(Math.max(config.threshold * 1.2, data.values[0] ?? 0));
     const average = data.values.reduce((sum, value) => sum + value, 0) / data.values.length;
-    const y = (value: number): string => `${(((top - value) / top) * CHART_HEIGHT).toFixed(1)}px`;
+    const y = (value: number): string => `${(((top - value) / top) * chart).toFixed(1)}px`;
     const bars = Array.from({ length: BARS }, (_, index) => {
       const position = Math.min(
         data.values.length - 1,
@@ -218,22 +225,38 @@ export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationD
     });
     const above = data.values.filter((value) => value > config.threshold).length;
     const p90 = quantile(data.values, 0.1);
+    const hover = slotHover(BARS, (index) => ({
+      title: t('duration.tip_title', { value: Math.round(((index + 1) / BARS) * 100) }),
+      rows: [
+        {
+          label: t('duration.tip_power'),
+          value: `${formatNumber(bars[index] ?? 0, 1, locale)} ${kw}`,
+          color: (bars[index] ?? 0) > config.threshold ? 'var(--m-warn)' : 'var(--m-home)',
+        },
+      ],
+    }));
 
     return html`
       ${header(title, meta(t('duration.range', { range })))}
       <div class="plot">
-        <div class="scale" style="height:${CHART_HEIGHT}px">
+        <div class="scale" style="height:${chart}px">
           <span style="top:0">${formatNumber(top, 0, locale)} ${kw}</span>
           <span style="top:${y(config.threshold)};color:var(--m-warn)"
             >${formatNumber(config.threshold, 0, locale)}</span
           >
           <span style="top:100%">0</span>
         </div>
-        <div class="curve">
+        <div
+          class="curve"
+          style="--chart:${chart}px"
+          @pointermove=${hover.move}
+          @pointerdown=${hover.move}
+          @pointerleave=${hover.leave}
+        >
           ${bars.map(
             (value) =>
               html`<span
-                style="height:${((value / top) * CHART_HEIGHT).toFixed(1)}px;background:${value > config.threshold ? 'var(--m-warn)' : 'var(--m-home)'}"
+                style="height:${((value / top) * chart).toFixed(1)}px;background:${value > config.threshold ? 'var(--m-warn)' : 'var(--m-home)'}"
               ></span>`,
           )}
           <div class="rule" style="--c:var(--m-warn);top:${y(config.threshold)}"></div>
@@ -242,25 +265,33 @@ export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationD
           </div>
         </div>
         <span></span>
-        ${axis([
-          { at: 0, label: '0' },
-          { at: 0.25, label: '25' },
-          { at: 0.5, label: '50' },
-          { at: 0.75, label: '75' },
-          { at: 1, label: t('duration.time_axis') },
-        ])}
+        ${
+          small
+            ? nothing
+            : axis([
+                { at: 0, label: '0' },
+                { at: 0.25, label: '25' },
+                { at: 0.5, label: '50' },
+                { at: 0.75, label: '75' },
+                { at: 1, label: t('duration.time_axis') },
+              ])
+        }
       </div>
-      ${this._renderPhases(context, data)}
-      ${stats([
-        { label: t('common.peak'), value: formatNumber(data.peak, 1, locale), unit: kw },
-        { label: t('duration.p90'), value: formatNumber(p90, 1, locale), unit: kw },
-        {
-          label: t('duration.above', { value: formatNumber(config.threshold, 0, locale) }),
-          value: String(above),
-          unit: unitText('h', locale),
-          tone: above > 0 ? 'warn' : 'ok',
-        },
-      ])}
+      ${small ? nothing : this._renderPhases(context, data)}
+      ${
+        small
+          ? nothing
+          : stats([
+              { label: t('common.peak'), value: formatNumber(data.peak, 1, locale), unit: kw },
+              { label: t('duration.p90'), value: formatNumber(p90, 1, locale), unit: kw },
+              {
+                label: t('duration.above', { value: formatNumber(config.threshold, 0, locale) }),
+                value: String(above),
+                unit: unitText('h', locale),
+                tone: above > 0 ? 'warn' : 'ok',
+              },
+            ])
+      }
     `;
   }
 
@@ -279,7 +310,7 @@ export class MetronDurationCard extends MetronCard<DurationCardConfig, DurationD
       return 'var(--m-home)';
     };
 
-    return html`<div class="section">
+    return html`<div class="section" data-drop="1">
       <div class="section-head">
         <span class="label">${t('duration.phase_peaks')}</span>
         ${

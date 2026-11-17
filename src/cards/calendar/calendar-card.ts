@@ -3,6 +3,7 @@ import type { CSSResultGroup, PropertyDeclarations, TemplateResult } from 'lit';
 import { DAY } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { overlap } from '../../core/data/history';
 import type { Interval } from '../../core/data/history';
@@ -23,6 +24,7 @@ import type { ConfigForm } from '../../ui/form';
 import { navigator, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { elementHover } from '../../ui/tip';
 import {
   balanceOf,
   energyFields,
@@ -151,8 +153,16 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
 
       .dial {
         position: relative;
-        width: 36px;
-        height: 36px;
+        width: var(--ring, 36px);
+        height: var(--ring, 36px);
+      }
+
+      .compact .day {
+        padding: 2px 0;
+      }
+
+      .compact .dial b {
+        font-size: 11px;
       }
 
       .dial b {
@@ -237,6 +247,10 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
 
   protected override cardSize(): number {
     return 7;
+  }
+
+  protected override defaultSize(): SizeSetting {
+    return 'large';
   }
 
   protected override async fetchData(
@@ -325,7 +339,9 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
   }
 
   private _renderMonth(context: Context, data: CalendarData): TemplateResult {
-    const { config, locale, now } = context;
+    const { config, locale, now, size, t } = context;
+    const ringSize = size === 'medium' ? 24 : 36;
+    const showText = size !== 'medium';
     const percent = PERCENT_METRICS.has(config.metric);
     const count = data.series.home.length;
     const values = Array.from({ length: count }, (_, index) =>
@@ -335,14 +351,21 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
     const max = Math.max(0, ...values.filter((value): value is number => value !== undefined));
     const today = startOfDay(now);
     const cells = Math.ceil(count / 7) * 7;
+    const focus = Math.min(
+      Math.max(0, Math.floor((startOfDay(now) - data.gridStart) / DAY)),
+      count - 1,
+    );
+    const firstCell = size === 'small' ? Math.floor(focus / 7) * 7 : 0;
+    const lastCell = size === 'small' ? firstCell + 7 : cells;
     const weekdays = Array.from({ length: 7 }, (_, index) =>
       formatWeekday(addDays(data.gridStart, index), locale),
     );
 
     return html`
-      <div class="days">
+      <div class="days ${size === 'medium' ? 'compact' : ''}" style="--ring:${ringSize}px">
         ${weekdays.map((day) => html`<span class="weekday">${day}</span>`)}
-        ${Array.from({ length: cells }, (_, index) => {
+        ${Array.from({ length: lastCell - firstCell }, (_, offset) => {
+          const index = firstCell + offset;
           const start = addDays(data.gridStart, index);
 
           if (index >= count || start >= monthEnd) return html`<span></span>`;
@@ -360,19 +383,42 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
                 ? `${formatNumber(value * 100, 0, locale)} %${isToday ? '…' : ''}`
                 : formatNumber(value, value >= 100 ? 0 : 1, locale);
 
+          const hover = elementHover(() => ({
+            title: formatDate(start, locale, { weekday: 'short', day: 'numeric', month: 'long' }),
+            rows: [
+              {
+                label: t(TITLES[config.metric]),
+                value:
+                  future || text === ''
+                    ? '—'
+                    : percent
+                      ? text
+                      : `${text} ${unitText('kWh', locale)}`,
+                color: this._color(config, value),
+              },
+              ...(outage
+                ? [{ label: t('calendar.outage'), value: '', color: 'var(--m-warn)' }]
+                : []),
+            ],
+          }));
+
           return html`<div
             class="day ${isToday ? 'today' : ''} ${start < data.month ? 'other' : ''}"
+            @pointermove=${hover.move}
+            @pointerdown=${hover.move}
+            @pointerleave=${hover.leave}
           >
             ${outage ? html`<span class="mark"></span>` : nothing}
             <div class="dial ${value === undefined ? 'unknown' : ''}">
-              ${ring(future ? undefined : fraction, this._color(config, value), 36, 4)}
+              ${ring(future ? undefined : fraction, this._color(config, value), ringSize, ringSize > 30 ? 4 : 3)}
               <b>${new Date(start).getDate()}</b>
             </div>
-            <span class="pct">${text}</span>
+            ${showText ? html`<span class="pct">${text}</span>` : nothing}
           </div>`;
         })}
       </div>
-      ${this._renderLegend(context)} ${stats(this._summary(context, data, values))}
+      ${size === 'auto' || size === 'large' ? this._renderLegend(context) : nothing}
+      ${size === 'small' ? nothing : stats(this._summary(context, data, values))}
     `;
   }
 
@@ -398,7 +444,7 @@ export class MetronCalendarCard extends MetronCard<CalendarCardConfig, CalendarD
       );
     }
 
-    return items.length > 0 ? html`<div class="legend">${items}</div>` : nothing;
+    return items.length > 0 ? html`<div class="legend" data-drop="1">${items}</div>` : nothing;
   }
 
   private _summary(

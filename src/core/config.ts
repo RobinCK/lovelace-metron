@@ -1,4 +1,5 @@
 import type { BaseConfig, RawConfig } from './base-card';
+import { isSizeSetting } from './size';
 
 const isRecord = (value: unknown): value is RawConfig =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -92,6 +93,18 @@ export const list = <T>(
   });
 };
 
+const gridRows = (raw: RawConfig): number | undefined => {
+  const options = raw.grid_options;
+
+  if (!isRecord(options)) return undefined;
+
+  const rows = options.rows;
+
+  return typeof rows === 'number' && Number.isFinite(rows) && rows >= 1
+    ? Math.round(rows)
+    : undefined;
+};
+
 export const base = (raw: RawConfig): BaseConfig => {
   const title = raw.title;
 
@@ -101,6 +114,8 @@ export const base = (raw: RawConfig): BaseConfig => {
     language: text(raw, 'language'),
     colors: stringRecord(raw, 'colors'),
     labels: stringRecord(raw, 'labels'),
+    size: isSizeSetting(raw.size) ? raw.size : undefined,
+    grid_rows: gridRows(raw),
   };
 };
 

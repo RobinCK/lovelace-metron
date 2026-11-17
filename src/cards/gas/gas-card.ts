@@ -3,12 +3,14 @@ import type { CSSResultGroup, SVGTemplateResult, TemplateResult } from 'lit';
 import { DAY, MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchStates, intervalsWhere, overlap } from '../../core/data/history';
 import { bucketize, fetchStatistics, maxOf, meanOf, minOf } from '../../core/data/statistics';
 import type { StatisticsResult } from '../../core/data/statistics';
 import { readNumber, stateIsOn } from '../../core/entities';
 import {
+  formatDate,
   formatDuration,
   formatMonth,
   formatNumber,
@@ -23,6 +25,7 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { axis, header, legend, pill } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import type { Tip, TipRow } from '../../ui/tip';
 import { degreeDays, specific } from '../shared/degree-days';
 import { counterSeries, resolveGas, total } from '../shared/energy-sources';
 import type { Series } from '../shared/energy-sources';
@@ -178,6 +181,10 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
     return 8;
   }
 
+  protected override defaultSize(): SizeSetting {
+    return 'large';
+  }
+
   protected override async fetchData(config: GasCardConfig, hass: HomeAssistant): Promise<GasData> {
     const now = Date.now();
     const start = startOfMonth(now);
@@ -299,7 +306,7 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
   }
 
   private _renderContent(context: Context, data: GasData): TemplateResult {
-    const { t, locale, now } = context;
+    const { size, t, locale, now } = context;
     const m3 = unitText('m³', locale);
     const sum = total(data.gas);
     const todayIndex = Math.floor((startOfDay(now) - data.start) / DAY);
@@ -339,8 +346,9 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
           </div>
         </div>
       </div>
-      ${this._renderTemperatures(context, data)} ${this._renderChart(context, data, avg)}
-      ${this._renderFooter(context, data, sum)}
+      ${size === 'small' ? nothing : this._renderTemperatures(context, data)}
+      ${this._renderChart(context, data, avg)}
+      ${size === 'auto' || size === 'large' ? this._renderFooter(context, data, sum) : nothing}
     `;
   }
 
@@ -396,18 +404,21 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
   }
 
   private _renderChart(context: Context, data: GasData, avg: number | undefined): TemplateResult {
-    const { config, t, locale, now } = context;
+    const { config, size, t, locale, now } = context;
+    const small = size === 'small';
+    const full = size === 'auto' || size === 'large';
     const todayIndex = Math.floor((startOfDay(now) - data.start) / DAY);
     const temperatureValues = [
       ...known(data.outdoorMin),
       ...known(data.outdoorMax),
       ...known(data.indoor),
     ];
-    const hasTemperature = temperatureValues.length > 0;
+    const hasTemperature = temperatureValues.length > 0 && !small;
     const low = Math.floor(Math.min(0, ...temperatureValues) / 5) * 5;
     const high = Math.ceil(Math.max(20, ...temperatureValues) / 5) * 5;
     const y = (value: number): number =>
       TEMPERATURE_HEIGHT - ((value - low) / (high - low || 1)) * TEMPERATURE_HEIGHT;
+
     const marks: SVGTemplateResult[] = [];
 
     for (let index = 0; index < data.days; index++) {
@@ -437,21 +448,28 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
     }
 
     const max = niceMax(Math.max(1, ...known(data.gas)));
-    const height = 56;
+    const height = small ? 28 : size === 'medium' ? 44 : 56;
+    const tempHeight = size === 'medium' ? 44 : TEMPERATURE_HEIGHT;
     const opacity = (index: number): number => (index === todayIndex ? 0.5 : 1);
 
-    return html`<div class="section" style="gap:6px">
-      ${legend([
-        ...(config.indoor ? [{ label: t('gas.indoor_short'), color: 'var(--m-home)' }] : []),
-        ...(config.outdoor ? [{ label: t('gas.outdoor_range'), color: 'var(--m-cold)' }] : []),
-        { label: t('gas.per_day', { unit: unitText('m³', locale) }), color: 'var(--m-gas)' },
-      ])}
+    return html`<div class="section shrink" style="gap:6px">
+      ${
+        full
+          ? legend([
+              ...(config.indoor ? [{ label: t('gas.indoor_short'), color: 'var(--m-home)' }] : []),
+              ...(config.outdoor
+                ? [{ label: t('gas.outdoor_range'), color: 'var(--m-cold)' }]
+                : []),
+              { label: t('gas.per_day', { unit: unitText('m³', locale) }), color: 'var(--m-gas)' },
+            ])
+          : nothing
+      }
       ${
         hasTemperature
           ? html`<div class="temps">
               <svg
                 viewBox="0 0 ${data.days * SLOT} ${TEMPERATURE_HEIGHT}"
-                height=${TEMPERATURE_HEIGHT}
+                height=${tempHeight}
                 preserveAspectRatio="none"
                 aria-hidden="true"
               >
@@ -468,24 +486,79 @@ export class MetronGasCard extends MetronCard<GasCardConfig, GasData> {
             </div>`
           : nothing
       }
-      <div class="gas-bars">
-        ${barChart([{ values: data.gas, color: 'var(--m-gas)', opacity }], { height, max, gap: 3, radius: 1 })}
+      <div class="gas-bars shrink">
+        ${barChart([{ values: data.gas, color: 'var(--m-gas)', opacity }], {
+          height,
+          fill: small ? 20 : 34,
+          max,
+          gap: 3,
+          radius: 1,
+          tip: (index) => this._tip(context, data, index),
+        })}
         ${
-          avg === undefined
+          avg === undefined || small
             ? nothing
             : html`<div class="avg" style="top:${((1 - avg / max) * height).toFixed(1)}px">
                 <span>${t('history.avg_short', { value: formatNumber(avg, 1, locale) })}</span>
               </div>`
         }
       </div>
-      ${axis(
-        [1, 8, 15, 22, data.days].map((day) => ({
-          at: (day - 0.5) / data.days,
-          label: String(day),
-          color: day - 1 === todayIndex ? 'var(--m-text)' : undefined,
-        })),
-      )}
+      ${
+        small
+          ? nothing
+          : axis(
+              [1, 8, 15, 22, data.days].map((day) => ({
+                at: (day - 0.5) / data.days,
+                label: String(day),
+                color: day - 1 === todayIndex ? 'var(--m-text)' : undefined,
+              })),
+            )
+      }
     </div>`;
+  }
+
+  private _tip(context: Context, data: GasData, index: number): Tip | undefined {
+    const { locale, t } = context;
+    const gas = data.gas[index];
+
+    if (gas === undefined) return undefined;
+
+    const degrees = (value: number | undefined): string =>
+      value === undefined ? '—' : `${formatNumber(value, 1, locale)} °C`;
+    const rows: TipRow[] = [
+      {
+        label: t('gas.gas'),
+        value: `${formatNumber(gas, 2, locale)} ${unitText('m³', locale)}`,
+        color: 'var(--m-gas)',
+      },
+    ];
+    const min = data.outdoorMin[index];
+    const max = data.outdoorMax[index];
+
+    if (min !== undefined && max !== undefined) {
+      rows.push({
+        label: t('gas.outdoor'),
+        value: `${degrees(min)} … ${degrees(max)}`,
+        color: 'var(--m-cold)',
+      });
+    }
+
+    if (data.indoor[index] !== undefined) {
+      rows.push({
+        label: t('gas.indoor'),
+        value: degrees(data.indoor[index]),
+        color: 'var(--m-home)',
+      });
+    }
+
+    return {
+      title: formatDate(addDays(data.start, index), locale, {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      }),
+      rows,
+    };
   }
 
   private _renderFooter(

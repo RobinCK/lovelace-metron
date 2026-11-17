@@ -3,6 +3,7 @@ import type { CSSResultGroup, SVGTemplateResult, TemplateResult } from 'lit';
 import { HOUR, MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import type { EntityItem } from '../../core/config';
 import { attribute, entityOf, isOn, readNumber } from '../../core/entities';
@@ -24,6 +25,7 @@ import type { ConfigForm } from '../../ui/form';
 import { axis, empty, header, icon, pill } from '../../ui/parts';
 import type { Tick } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { elementHover, tipValue } from '../../ui/tip';
 import { computeAutonomy, computeFlows, deriveHome } from './flows';
 import type { Flow, FlowNode, PowerBalance } from './flows';
 import { layoutSankey, ribbonPath, spread } from './sankey';
@@ -72,6 +74,8 @@ interface Phase {
 }
 
 const SUN = 'sun.sun';
+const percent = (value: number, total: number): string =>
+  `${total > 0 ? ((value / total) * 100).toFixed(2) : 0}%`;
 const LABEL_SIZE = 66;
 const SEGMENTS = 10;
 
@@ -135,7 +139,21 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
+      .quad {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 16px;
+      }
+
+      .quad-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
       .sankey {
+        flex: 0 1 auto;
         display: grid;
         grid-template-columns: minmax(80px, 112px) minmax(64px, 1fr) minmax(104px, 148px);
         column-gap: 10px;
@@ -456,16 +474,89 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     return 7;
   }
 
+  protected override defaultSize(): SizeSetting {
+    return 'large';
+  }
+
   protected renderBody(context: Context): TemplateResult {
-    const { config, t } = context;
+    const { config, size, t } = context;
     const reading = this._read(context);
     const flows = computeFlows(reading.balance);
+    const head = header(config.title ?? t('flow.title'), this._statusPill(context, reading));
+
+    if (size === 'small') return html`${head} ${this._renderCompact(context, reading)}`;
+
+    const outage = !reading.gridOn;
+    const autonomy = outage
+      ? this._renderAutonomy(context, reading, this._sunrise(context))
+      : nothing;
+    const compactOutage = size === 'medium' && outage && autonomy !== nothing;
+    const height = compactOutage
+      ? 120
+      : size === 'large'
+        ? outage
+          ? 236
+          : 340
+        : size === 'medium'
+          ? 296
+          : undefined;
+    const sankey =
+      flows.length === 0
+        ? empty(t('flow.no_flow'))
+        : this._renderSankey(context, reading, flows, height);
+
+    if (compactOutage) return html`${head} ${sankey} ${autonomy}`;
+    if (size === 'medium') return html`${head} ${sankey}`;
 
     return html`
-      ${header(config.title ?? t('flow.title'), this._statusPill(context, reading))}
-      ${flows.length === 0 ? empty(t('flow.no_flow')) : this._renderSankey(context, reading, flows)}
+      ${head} ${sankey}
       ${reading.gridOn ? this._renderPanels(context, reading) : this._renderOutage(context, reading)}
     `;
+  }
+
+  private _renderCompact(context: Context, reading: Reading): TemplateResult {
+    const { config, locale, t, moreInfo } = context;
+    const { solar, grid, battery, home } = reading.balance;
+    const soc = reading.soc === undefined ? '' : `${formatNumber(reading.soc, 0, locale)} % · `;
+    const items: readonly { node: FlowNode; watts: number; sub: string }[] = [
+      { node: 'solar', watts: solar, sub: '' },
+      {
+        node: 'battery',
+        watts: Math.abs(battery),
+        sub: `${soc}${battery > 0 ? t('flow.discharging') : battery < 0 ? t('flow.charging') : ''}`,
+      },
+      {
+        node: 'grid',
+        watts: Math.abs(grid),
+        sub: reading.gridOn
+          ? grid >= 0
+            ? t('flow.import')
+            : t('flow.export')
+          : t('flow.grid_off'),
+      },
+      { node: 'home', watts: home, sub: '' },
+    ];
+
+    return html`<div class="quad">
+      ${items.map((item) => {
+        const power = formatPower(item.watts, locale);
+
+        return html`<div
+          class="quad-item clickable"
+          @click=${() => {
+            moreInfo(this._entityFor(config, item.node));
+          }}
+        >
+          <div class="node-head">
+            <span class="node-label" style="color:${COLORS[item.node]}"
+              >${t(LABELS[item.node])}</span
+            >
+            <span class="node-sub">${item.sub}</span>
+          </div>
+          <span class="node-value"><b>${power.value}</b><small>${power.unit}</small></span>
+        </div>`;
+      })}
+    </div>`;
   }
 
   private _read(context: Context): Reading {
@@ -504,11 +595,12 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     context: Context,
     reading: Reading,
     flows: readonly Flow[],
+    fixed: number | undefined,
   ): TemplateResult {
-    const { config } = context;
+    const { config, locale, t } = context;
     const sources = new Set(flows.map((flow) => flow.from)).size;
     const sinks = new Set(flows.map((flow) => flow.to)).size;
-    const height = Math.min(config.height, 40 + LABEL_SIZE * Math.max(sources, sinks));
+    const height = fixed ?? Math.min(config.height, 40 + LABEL_SIZE * Math.max(sources, sinks));
     const layout = layoutSankey(flows, height, 10);
     const leftCenters = spread(
       layout.left.map((node) => node.y + node.h / 2),
@@ -523,27 +615,48 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     const sinkTotal = layout.right.reduce((total, node) => total + node.value, 0);
     const pairs = [...new Set(layout.ribbons.map((ribbon) => `${ribbon.from}-${ribbon.to}`))];
 
-    return html`<div class="sankey" style="height:${height}px">
+    return html`<div
+      class="sankey"
+      style="height:${height}px;min-height:${Math.round(height * 0.8)}px"
+      data-drop="2"
+    >
       <div class="side left">
         ${layout.left.map((node, index) =>
-          this._renderSource(context, reading, node, leftCenters[index] ?? 0),
+          this._renderSource(context, reading, node, percent(leftCenters[index] ?? 0, height)),
         )}
       </div>
       <div class="mid">
         <svg viewBox="0 0 100 ${height}" preserveAspectRatio="none" aria-hidden="true">
           <defs>${pairs.map((pair) => this._gradient(pair))}</defs>
-          ${layout.ribbons.map(
-            (ribbon) =>
-              svg`<path class="ribbon" d=${ribbonPath(ribbon, 0, 100)} style="fill:url(#flow-${ribbon.from}-${ribbon.to})" vector-effect="non-scaling-stroke"></path>`,
-          )}
+          ${layout.ribbons.map((ribbon) => {
+            const hover = elementHover(() => ({
+              title: `${t(LABELS[ribbon.from])} → ${t(LABELS[ribbon.to])}`,
+              rows: [
+                {
+                  label: t('flow.power'),
+                  value: tipValue(formatPower(ribbon.value, locale)),
+                  color: COLORS[ribbon.from],
+                },
+              ],
+            }));
+
+            return svg`<path class="ribbon" d=${ribbonPath(ribbon, 0, 100)} style="fill:url(#flow-${ribbon.from}-${ribbon.to})" vector-effect="non-scaling-stroke" @pointermove=${hover.move} @pointerdown=${hover.move} @pointerleave=${hover.leave}></path>`;
+          })}
           ${config.animate ? layout.ribbons.map((ribbon) => this._dots(ribbon, sinkTotal)) : nothing}
         </svg>
-        ${layout.left.map((node) => this._bar(node, 'left'))}
-        ${layout.right.map((node) => this._bar(node, 'right'))}
+        ${layout.left.map((node) => this._bar(node, 'left', height))}
+        ${layout.right.map((node) => this._bar(node, 'right', height))}
       </div>
       <div class="side right">
         ${layout.right.map((node, index) =>
-          this._renderSink(context, reading, flows, node, rightCenters[index] ?? 0, sinkTotal),
+          this._renderSink(
+            context,
+            reading,
+            flows,
+            node,
+            percent(rightCenters[index] ?? 0, height),
+            sinkTotal,
+          ),
         )}
       </div>
     </div>`;
@@ -567,10 +680,10 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     return svg`<path class="dots" d="M0,${start} C50,${start} 50,${end} 100,${end}" style="--c:${COLORS[ribbon.from]};animation-duration:${duration}s" vector-effect="non-scaling-stroke"></path>`;
   }
 
-  private _bar(node: NodeBox, side: 'left' | 'right'): TemplateResult {
+  private _bar(node: NodeBox, side: 'left' | 'right', height: number): TemplateResult {
     return html`<i
       class="bar"
-      style="${side}:0;top:${node.y.toFixed(1)}px;height:${node.h.toFixed(1)}px;background:${
+      style="${side}:0;top:${percent(node.y, height)};height:${percent(node.h, height)};background:${
         COLORS[node.id]
       }"
     ></i>`;
@@ -580,7 +693,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     context: Context,
     reading: Reading,
     node: NodeBox,
-    center: number,
+    center: string,
   ): TemplateResult {
     const { config, hass, t, locale, moreInfo } = context;
     const power = formatPower(node.value, locale);
@@ -614,7 +727,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
 
     return html`<div
       class="node clickable"
-      style="top:${center.toFixed(1)}px"
+      style="top:${center}"
       @click=${() => {
         moreInfo(this._entityFor(config, node.id));
       }}
@@ -630,7 +743,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     reading: Reading,
     flows: readonly Flow[],
     node: NodeBox,
-    center: number,
+    center: string,
     total: number,
   ): TemplateResult {
     const { config, t, locale, moreInfo } = context;
@@ -639,7 +752,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
 
     return html`<div
       class="node clickable"
-      style="top:${center.toFixed(1)}px"
+      style="top:${center}"
       @click=${() => {
         moreInfo(this._entityFor(config, node.id));
       }}
@@ -692,7 +805,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
 
     if (panels.length === 0) return nothing;
 
-    return html`<div class="panels" style="--cols:${panels.length}">${panels}</div>`;
+    return html`<div class="panels" style="--cols:${panels.length}" data-drop="1">${panels}</div>`;
   }
 
   private _renderBatteryPanel(context: Context, reading: Reading): TemplateResult {
@@ -859,6 +972,10 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     >`;
   }
 
+  private _sunrise(context: Context): number | undefined {
+    return parseTime(attribute<string>(context.hass, SUN, 'next_rising'));
+  }
+
   private _renderOutage(context: Context, reading: Reading): TemplateResult {
     const { config, hass, t, locale, now } = context;
     const solar = formatPower(reading.balance.solar, locale);
@@ -871,7 +988,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     if (sunUp && setting) sunLine = t('flow.sunset_at', { time: formatTime(setting, locale) });
     if (!sunUp && rising) sunLine = t('flow.sunrise_at', { time: formatTime(rising, locale) });
 
-    return html`<div class="panels">
+    return html`<div class="panels" data-drop="1">
         <div class="tile">
           ${icon(sunUp ? 'mdi:weather-sunny' : 'mdi:weather-sunset-up')}
           <div class="tile-text">
@@ -921,7 +1038,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     const end = finite ? now + autonomy.hours * HOUR : undefined;
     const toSunrise = sunrise !== undefined && sunrise > now ? (sunrise - now) / HOUR : undefined;
 
-    return html`<div class="panel">
+    return html`<div class="panel" data-drop="3">
       <div class="panel-head">
         <span class="eyebrow">${t('flow.autonomy')}</span>
         <span class="meta mono"

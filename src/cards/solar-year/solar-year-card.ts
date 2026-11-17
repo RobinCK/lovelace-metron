@@ -1,8 +1,9 @@
-import { css, html } from 'lit';
+import { css, html, nothing } from 'lit';
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import {
   formatDate,
@@ -19,6 +20,7 @@ import type { ConfigForm } from '../../ui/form';
 import { colorOf, header, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { elementHover, tipValue } from '../../ui/tip';
 import {
   energyFields,
   energySeries,
@@ -46,6 +48,8 @@ interface YearData {
 type Context = CardContext<SolarYearCardConfig, YearData>;
 
 export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -80,6 +84,15 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
         aspect-ratio: 1;
         border-radius: 2px;
         background: var(--m-track);
+      }
+
+      .cells.tall span {
+        aspect-ratio: auto;
+        height: 24px;
+      }
+
+      .cells span:hover {
+        outline: 1px solid var(--m-text);
       }
 
       .cells span.today {
@@ -150,7 +163,7 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, locale, now } = context;
+    const { config, data, size, t, locale, now } = context;
     const color = colorOf(config.color ?? 'solar');
 
     if (!data) {
@@ -193,7 +206,7 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
           })}
         </div>
         <div
-          class="cells"
+          class="cells ${size === 'medium' ? 'tall' : ''}"
           style="--weeks:${weeks}"
           role="img"
           aria-label=${t('solar_year.chart_label')}
@@ -207,16 +220,24 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
             }
 
             const alpha = 0.1 + 0.9 * Math.min(1, value / (max || 1));
+            const hover = elementHover(() => ({
+              title: formatDate(day, locale, { weekday: 'short', day: 'numeric', month: 'long' }),
+              rows: [
+                { label: t('solar_year.day'), value: tipValue(formatEnergy(value, locale)), color },
+              ],
+            }));
 
             return html`<span
               class=${day === today ? 'today' : ''}
-              title="${formatDate(day, locale)} · ${formatNumber(value, 1, locale)}"
+              @pointermove=${hover.move}
+              @pointerdown=${hover.move}
+              @pointerleave=${hover.leave}
               style="background:color-mix(in srgb, ${color} ${(alpha * 100).toFixed(0)}%, var(--m-track))"
             ></span>`;
           })}
         </div>
       </div>
-      ${stats(this._summary(context, data, known))}
+      ${size === 'small' ? nothing : stats(this._summary(context, data, known))}
     `;
   }
 

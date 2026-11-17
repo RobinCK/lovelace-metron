@@ -3,14 +3,25 @@ import type { CSSResultGroup, PropertyDeclarations, PropertyValues, TemplateResu
 import { MINUTE } from '../const';
 import type { HomeAssistant, LovelaceGridOptions } from '../types/ha';
 import { MetronCardEditor } from '../ui/editor';
-import { createForm } from '../ui/form';
+import { createForm, withSize } from '../ui/form';
 import type { ConfigForm } from '../ui/form';
 import { metronStyles } from '../ui/styles';
+import { tipHandler, tipLayer } from '../ui/tip';
 import { openMoreInfo } from './actions';
 import { toFormatLocale } from './format';
 import type { FormatLocale } from './format';
 import { createLocalize, resolveLanguage } from './i18n';
 import type { Localize, TranslationKey } from './i18n';
+import {
+  SIZE_ROWS,
+  clampSize,
+  rowsCardSize,
+  rowsHeight,
+  sizeRows,
+  sizesBetween,
+  tierOf,
+} from './size';
+import type { CardSize, SizeSetting } from './size';
 
 export type RawConfig = Readonly<Record<string, unknown>>;
 
@@ -20,6 +31,8 @@ export interface BaseConfig {
   readonly language?: string;
   readonly colors?: Readonly<Record<string, string>>;
   readonly labels?: Readonly<Record<string, string>>;
+  readonly size?: SizeSetting;
+  readonly grid_rows?: number;
 }
 
 export interface CardContext<C extends BaseConfig, D> {
@@ -29,6 +42,7 @@ export interface CardContext<C extends BaseConfig, D> {
   readonly t: Localize;
   readonly locale: FormatLocale;
   readonly now: number;
+  readonly size: SizeSetting;
   readonly moreInfo: (entityId: string | undefined) => void;
   readonly update: () => void;
 }
@@ -55,6 +69,26 @@ const colorStyle = (colors: Readonly<Record<string, string>> | undefined): strin
     .map(([key, value]) => `--metron-${key}-color:${value}`)
     .join(';');
 
+const clipped = (element: HTMLElement): boolean => element.scrollHeight > element.clientHeight + 1;
+
+const overflows = (card: HTMLElement): boolean =>
+  clipped(card) ||
+  [...card.querySelectorAll<HTMLElement>('.shrink')].some(
+    (element) => element.clientHeight > 0 && clipped(element),
+  );
+
+const dropGroups = (card: HTMLElement): HTMLElement[][] => {
+  const groups = new Map<number, HTMLElement[]>();
+
+  card.querySelectorAll<HTMLElement>('[data-drop]').forEach((element) => {
+    const priority = Number(element.dataset.drop) || 0;
+
+    groups.set(priority, [...(groups.get(priority) ?? []), element]);
+  });
+
+  return [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([, elements]) => elements);
+};
+
 const hassChanged = (
   previous: HomeAssistant | undefined,
   current: HomeAssistant | undefined,
@@ -75,6 +109,7 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
     _config: { state: true },
     _data: { state: true },
     _tick: { state: true },
+    layout: { attribute: false },
   };
 
   static override styles: CSSResultGroup = metronStyles;
@@ -84,6 +119,12 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
   declare _data: D | undefined;
   declare _tick: number;
 
+  declare layout: string | undefined;
+
+  static minSize: CardSize = 'small';
+
+  static maxSize: CardSize = 'large';
+
   static configForm(): ConfigForm {
     return createForm([]);
   }
@@ -91,7 +132,7 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
   static getConfigElement(): MetronCardEditor {
     const editor = new MetronCardEditor();
 
-    editor.form = this.configForm();
+    editor.form = withSize(this.configForm(), sizesBetween(this.minSize, this.maxSize));
 
     return editor;
   }
@@ -103,6 +144,8 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
   private _refreshTimer: number | undefined;
 
   private _tickTimer: number | undefined;
+
+  private _resizeObserver: ResizeObserver | undefined;
 
   protected abstract parseConfig(raw: RawConfig): C;
 
@@ -128,6 +171,10 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
     return 4;
   }
 
+  protected defaultSize(_config: C): SizeSetting {
+    return 'medium';
+  }
+
   protected missingOption(_config: C): string | undefined {
     return undefined;
   }
@@ -149,21 +196,41 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
   }
 
   getCardSize(): number {
-    return this._config ? this.cardSize(this._config) : 4;
+    const config = this._config;
+
+    if (!config) return 4;
+
+    const rows = this._heightRows(config);
+
+    return rows === undefined ? this.cardSize(config) : rowsCardSize(rows);
   }
 
   getGridOptions(): LovelaceGridOptions {
-    return { columns: 12, rows: 'auto', min_columns: 6 };
+    const config = this._config;
+    const rows = config ? sizeRows(this._heightSize(config)) : undefined;
+
+    return {
+      columns: 12,
+      rows: rows ?? 'auto',
+      min_columns: 6,
+      min_rows: SIZE_ROWS[this._heightMin()],
+      max_rows: SIZE_ROWS[(this.constructor as typeof MetronCard).maxSize],
+    };
   }
 
   override connectedCallback(): void {
     super.connectedCallback();
     this._restartTimers();
+    this._resizeObserver ??= new ResizeObserver(() => {
+      this._fitHeight();
+    });
+    this._resizeObserver.observe(this);
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._stopTimers();
+    this._resizeObserver?.disconnect();
     this._requested = false;
   }
 
@@ -202,7 +269,11 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
       </ha-card>`;
     }
 
-    return html`<ha-card class="metron" style=${colorStyle(config.colors)}>
+    return html`<ha-card
+      class="metron"
+      style=${colorStyle(config.colors)}
+      @metron-tip=${tipHandler}
+    >
       ${this.renderBody({
         config,
         hass,
@@ -210,6 +281,7 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
         t,
         locale: toFormatLocale(hass.locale, language, unitDictionary(t)),
         now: Date.now(),
+        size: tierOf(this._heightRows(config)),
         moreInfo: (entityId) => {
           openMoreInfo(this, entityId);
         },
@@ -217,7 +289,62 @@ export abstract class MetronCard<C extends BaseConfig, D = never> extends LitEle
           this.requestUpdate();
         },
       })}
+      ${tipLayer()}
     </ha-card>`;
+  }
+
+  protected override updated(): void {
+    const config = this._config;
+
+    if (!config) return;
+
+    const rows = this.layout === 'grid' ? undefined : this._heightRows(config);
+
+    if (rows === undefined) {
+      this.style.removeProperty('height');
+    } else {
+      this.style.height = `${rowsHeight(rows)}px`;
+    }
+
+    this._fitHeight();
+  }
+
+  private _heightMin(): CardSize {
+    return (this.constructor as typeof MetronCard).minSize;
+  }
+
+  private _heightSize(config: C): SizeSetting {
+    return clampSize(
+      config.size ?? this.defaultSize(config),
+      this._heightMin(),
+      (this.constructor as typeof MetronCard).maxSize,
+    );
+  }
+
+  private _heightRows(config: C): number | undefined {
+    return config.grid_rows ?? sizeRows(this._heightSize(config));
+  }
+
+  private _fitHeight(): void {
+    const card = this.renderRoot.querySelector<HTMLElement>('ha-card');
+
+    if (!card) return;
+
+    card.querySelectorAll('[data-cut]').forEach((element) => {
+      element.removeAttribute('data-cut');
+    });
+
+    const config = this._config;
+
+    if (!config || this._heightRows(config) === undefined || card.clientHeight === 0) return;
+
+    for (const group of dropGroups(card)) {
+      if (!overflows(card)) return;
+
+      group.forEach((element) => {
+        element.setAttribute('data-cut', '');
+      });
+    }
   }
 
   protected reload(): void {

@@ -1,21 +1,25 @@
 import { css, html, nothing } from 'lit';
 import type { CSSResultGroup, TemplateResult } from 'lit';
-import { DAY } from '../../const';
+import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import { contentHeight } from '../../core/size';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { hourlyChanges } from '../../core/data/energy';
 import { fetchStatistics } from '../../core/data/statistics';
-import { isCounter } from '../../core/entities';
+import { formatValue, isCounter } from '../../core/entities';
 import { formatTime } from '../../core/format';
+import { niceMax } from '../../core/math';
 import { startOfDay } from '../../core/time';
 import { findEntities } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
-import { sparkBars } from '../../ui/charts';
+import { barChart } from '../../ui/charts';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { header, meta, stateIcon } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { tipValue } from '../../ui/tip';
 import { itemStyles, renderProgress, renderSecondary } from '../shared/item-parts';
 import { describeItem, itemEntities, ITEM_LIST_FIELDS, parseItem } from '../shared/items';
 import type { ItemConfig } from '../shared/items';
@@ -29,6 +33,10 @@ export interface TileCardConfig extends BaseConfig {
 type Sparklines = ReadonlyMap<string, readonly (number | undefined)[]>;
 
 type Context = CardContext<TileCardConfig, Sparklines>;
+
+const HEADER = 40;
+const GAP = 10;
+const MIN_TILE = 72;
 
 export class MetronTileCard extends MetronCard<TileCardConfig, Sparklines> {
   static override styles: CSSResultGroup = [
@@ -95,7 +103,7 @@ export class MetronTileCard extends MetronCard<TileCardConfig, Sparklines> {
         color: var(--m-muted);
       }
 
-      .tile-box .item-sub {
+      .tile-box .tile-sub {
         margin-top: auto;
       }
     `,
@@ -137,6 +145,14 @@ export class MetronTileCard extends MetronCard<TileCardConfig, Sparklines> {
     return 1 + Math.ceil(config.tiles.length / config.columns) * 2;
   }
 
+  protected override defaultSize(config: TileCardConfig): SizeSetting {
+    const rows = Math.ceil(config.tiles.length / config.columns);
+
+    if (rows <= 1) return 'small';
+
+    return rows === 2 ? 'medium' : 'large';
+  }
+
   protected override fetchData(
     config: TileCardConfig,
     hass: HomeAssistant,
@@ -167,8 +183,17 @@ export class MetronTileCard extends MetronCard<TileCardConfig, Sparklines> {
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, locale, now } = context;
+    const { config, locale, now, size } = context;
     const showHeader = Boolean(config.title) || config.show_time;
+    const available = size === 'auto' ? undefined : contentHeight(size) - (showHeader ? HEADER : 0);
+    const needed = Math.ceil(config.tiles.length / config.columns);
+    const rows =
+      available === undefined
+        ? needed
+        : Math.max(1, Math.min(needed, Math.floor((available + GAP) / (MIN_TILE + GAP))));
+    const height =
+      available === undefined ? undefined : Math.floor((available - (rows - 1) * GAP) / rows);
+    const tiles = config.tiles.slice(0, rows * config.columns);
 
     return html`
       ${
@@ -176,19 +201,30 @@ export class MetronTileCard extends MetronCard<TileCardConfig, Sparklines> {
           ? header(config.title ?? '', config.show_time ? meta(formatTime(now, locale)) : nothing)
           : nothing
       }
-      <div class="tiles" style="--cols:${config.columns}">
-        ${config.tiles.map((tile, index) => this._renderTile(context, tile, index))}
+      <div
+        class="tiles"
+        style="--cols:${config.columns};${height === undefined ? '' : `grid-auto-rows:${height}px`}"
+      >
+        ${tiles.map((tile, index) => this._renderTile(context, tile, index, tiles.length - index))}
       </div>
     `;
   }
 
-  private _renderTile(context: Context, tile: ItemConfig, index: number): TemplateResult {
-    const { hass, t, locale, moreInfo, data } = context;
+  private _renderTile(
+    context: Context,
+    tile: ItemConfig,
+    index: number,
+    drop: number,
+  ): TemplateResult {
+    const { hass, t, locale, moreInfo, data, now, size } = context;
+    const sparkHeight = size === 'large' ? 56 : size === 'medium' ? 40 : size === 'small' ? 18 : 24;
     const view = describeItem(hass, tile, index, t, locale);
     const spark = tile.sparkline ? data?.get(tile.entity) : undefined;
+    const start = startOfDay(now);
 
     return html`<div
-      class="tile-box clickable"
+      class="tile-box shrink clickable"
+      data-drop=${drop + 1}
       @click=${() => {
         moreInfo(tile.entity);
       }}
@@ -201,7 +237,40 @@ export class MetronTileCard extends MetronCard<TileCardConfig, Sparklines> {
           view.value.unit ? html`<small>${view.value.unit}</small>` : nothing
         }
       </div>
-      ${spark ? sparkBars(spark, view.color, 24) : renderProgress(view)} ${renderSecondary(view)}
+      ${
+        spark
+          ? barChart([{ values: spark, color: view.color }], {
+              height: sparkHeight,
+              fill: 16,
+              gap: 3,
+              radius: 0.8,
+              max: niceMax(Math.max(0, ...spark.map((value) => value ?? 0))),
+              tip: (hour) => {
+                const value = spark[hour];
+
+                if (value === undefined) return undefined;
+
+                const from = start + hour * HOUR;
+
+                return {
+                  title: `${formatTime(from, locale)}–${formatTime(from + HOUR, locale)}`,
+                  rows: [
+                    {
+                      label: view.name,
+                      value: tipValue(formatValue(hass, tile.entity, value, locale)),
+                      color: view.color,
+                    },
+                  ],
+                };
+              },
+            })
+          : renderProgress(view)
+      }
+      ${
+        view.secondary
+          ? html`<div class="tile-sub" data-drop="1">${renderSecondary(view)}</div>`
+          : nothing
+      }
     </div>`;
   }
 }

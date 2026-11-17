@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchCalendarIntervals } from '../../core/data/calendar';
 import {
@@ -23,6 +24,7 @@ import type { ConfigForm } from '../../ui/form';
 import { header, icon, meta, stats, weatherIcon } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { elementHover } from '../../ui/tip';
 import { degreeDays } from '../shared/degree-days';
 import {
   counterSeries,
@@ -91,6 +93,8 @@ const CONDITION_FACTOR: Readonly<Record<string, number>> = {
 const BAR_HEIGHT = 48;
 
 export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -148,7 +152,7 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
         align-items: center;
         justify-content: flex-end;
         gap: 4px;
-        height: ${BAR_HEIGHT + 16}px;
+        height: calc(var(--bar, ${BAR_HEIGHT}px) + 16px);
       }
 
       .bar-cell i {
@@ -317,7 +321,33 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, locale, now } = context;
+    const { config, data, size, t, locale, now } = context;
+    const bar = size === 'medium' ? 36 : BAR_HEIGHT;
+    const small = size === 'small';
+    const dayTip = (day: DayPlan): ReturnType<typeof elementHover> =>
+      elementHover(() => ({
+        title: formatWeekday(day.start, locale) + ' ' + String(new Date(day.start).getDate()),
+        rows: [
+          ...(day.solar === undefined
+            ? []
+            : [
+                {
+                  label: t('flow.solar'),
+                  value: `${day.estimated ? '≈ ' : ''}${formatNumber(day.solar, 1, locale)} ${unitText('kWh', locale)}`,
+                  color: 'var(--m-solar)',
+                },
+              ]),
+          ...(day.gas === undefined
+            ? []
+            : [
+                {
+                  label: t('week.gas_row'),
+                  value: `${formatNumber(day.gas, 1, locale)} ${unitText('m³', locale)}`,
+                  color: 'var(--m-gas)',
+                },
+              ]),
+        ],
+      }));
     const title = config.title ?? t('week.title');
 
     if (!data)
@@ -341,7 +371,7 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
 
     return html`
       ${header(title, parts.length > 0 ? meta(parts.join(' · ')) : nothing)}
-      <div class="table" style="--days:${data.days.length}">
+      <div class="table" style="--days:${data.days.length};--bar:${bar}px">
         <span></span>
         ${data.days.map(
           (day) =>
@@ -367,13 +397,17 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
             >`,
         )}
         ${
-          data.hasSolar
+          data.hasSolar && !small
             ? html`<span class="label-cell">${t('flow.solar')}</span> ${data.days.map(
                   (day) =>
-                    html`<div class="bar-cell">
+                    html`<div
+                      class="bar-cell"
+                      @pointermove=${dayTip(day).move}
+                      @pointerleave=${dayTip(day).leave}
+                    >
                       <i
                         class=${day.estimated ? 'estimated' : ''}
-                        style="height:${(((day.solar ?? 0) / solarMax) * BAR_HEIGHT).toFixed(1)}px;background:var(--m-solar)"
+                        style="height:${(((day.solar ?? 0) / solarMax) * bar).toFixed(1)}px;background:var(--m-solar)"
                       ></i>
                       <span
                         >${day.solar === undefined ? '—' : `${day.estimated ? '≈' : ''}${formatNumber(day.solar, 0, locale)}`}</span
@@ -383,12 +417,16 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
             : nothing
         }
         ${
-          data.hasGas
+          data.hasGas && !small
             ? html`<span class="label-cell">${t('week.gas_row')}</span> ${data.days.map(
                   (day) =>
-                    html`<div class="bar-cell">
+                    html`<div
+                      class="bar-cell"
+                      @pointermove=${dayTip(day).move}
+                      @pointerleave=${dayTip(day).leave}
+                    >
                       <i
-                        style="height:${(((day.gas ?? 0) / gasMax) * BAR_HEIGHT).toFixed(1)}px;background:var(--m-gas)"
+                        style="height:${(((day.gas ?? 0) / gasMax) * bar).toFixed(1)}px;background:var(--m-gas)"
                       ></i>
                       <span>${formatNumber(day.gas, 1, locale)}</span>
                     </div>`,
@@ -396,7 +434,7 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
             : nothing
         }
         ${
-          config.outage_calendar
+          config.outage_calendar && !small
             ? html`<span class="label-cell">${t('week.outages_row')}</span> ${data.days.map(
                   (day) =>
                     html`<span class="cell"
@@ -419,7 +457,7 @@ export class MetronWeekAheadCard extends MetronCard<WeekAheadCardConfig, WeekDat
             : nothing
         }
       </div>
-      ${stats(this._summary(context, data))}
+      ${small ? nothing : stats(this._summary(context, data))}
     `;
   }
 

@@ -1,16 +1,18 @@
-import { css, html } from 'lit';
+import { css, html, nothing } from 'lit';
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import { HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
-import { formatDate, formatMoney, formatNumber } from '../../core/format';
+import { formatDate, formatMoney, formatNumber, unitText } from '../../core/format';
 import { firstWeekday } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { axis, header, meta } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
 import {
   counterSeries,
   energyFields,
@@ -78,6 +80,8 @@ const parsePlans = (raw: RawConfig): Plan[] =>
   });
 
 export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -96,6 +100,7 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
         gap: 2px;
         height: 52px;
         border-bottom: 1px solid var(--m-line);
+        touch-action: pan-y;
       }
 
       .histogram span {
@@ -226,7 +231,7 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, hass, t, locale } = context;
+    const { config, data, hass, size, t, locale } = context;
     const title = config.title ?? t('tariff.title');
 
     if (!data)
@@ -239,7 +244,7 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
     });
 
     return html`
-      ${header(title, meta(range))} ${this._renderZones(context, data)}
+      ${header(title, meta(range))} ${size === 'small' ? nothing : this._renderZones(context, data)}
       ${price === undefined ? html`<div class="empty">${t('tariff.no_price')}</div>` : this._renderVariants(context, data, price)}
     `;
   }
@@ -249,11 +254,32 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
     const peak = Math.max(0.0001, ...data.imported);
     const first = config.plans[0];
     const firstNight = first ? nightFactor(first) : 1;
+    const hover = slotHover(data.imported.length, (hour) => {
+      const value = data.imported[hour];
+
+      if (value === undefined) return undefined;
+
+      return {
+        title: `${String(hour).padStart(2, '0')}:00–${String((hour + 1) % 24).padStart(2, '0')}:00`,
+        rows: [
+          {
+            label: t('tariff.average_import'),
+            value: `${formatNumber(value, 2, locale)} ${unitText('kWh', locale)}`,
+            color: 'var(--m-grid)',
+          },
+        ],
+      };
+    });
 
     return html`<div class="section" style="gap:6px">
       <div class="hours">
         <span>${t('tariff.import')}</span>
-        <div class="histogram">
+        <div
+          class="histogram"
+          @pointermove=${hover.move}
+          @pointerdown=${hover.move}
+          @pointerleave=${hover.leave}
+        >
           ${data.imported.map(
             (value) =>
               html`<span style="height:${Math.max(1, (value / peak) * 52).toFixed(1)}px"></span>`,
@@ -285,7 +311,7 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
           { at: 1, label: '24' },
         ])}
       </div>
-      <div class="legend">
+      <div class="legend" style=${context.size === 'auto' ? '' : 'display:none'}>
         <span
           ><i style="--c:var(--m-ok)"></i
           >${t('tariff.cheap', { value: factorText(firstNight, locale) })}</span
@@ -323,12 +349,12 @@ export class MetronTariffCard extends MetronCard<TariffCardConfig, TariffData> {
     const max = Math.max(1, ...variants.map((variant) => Math.abs(variant.value)));
 
     return html`<div class="rows variants">
-      ${variants.map((variant) => {
+      ${variants.map((variant, index) => {
         const diff = variant.value - base;
         const saving = diff < 0;
         const color = variant.base ? 'var(--m-text-2)' : saving ? 'var(--m-ok)' : 'var(--m-warn)';
 
-        return html`<div class="row">
+        return html`<div class="row" data-drop=${variants.length - index}>
           <span class="name" style=${variant.base ? 'color:var(--m-text-2)' : ''}
             >${variant.name}</span
           >

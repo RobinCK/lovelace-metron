@@ -3,6 +3,8 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import { contentHeight } from '../../core/size';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchSamples, resample } from '../../core/data/history';
 import { deviceClass, entityName, formatValue, readNumber } from '../../core/entities';
@@ -14,6 +16,9 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { axis, colorOf, header } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { tipValue } from '../../ui/tip';
+import type { Tip } from '../../ui/tip';
+import { formatTime } from '../../core/format';
 import { niceMax } from '../../core/math';
 
 export interface LiveSeries {
@@ -84,9 +89,17 @@ export class MetronLiveCard extends MetronCard<LiveCardConfig, History> {
 
       .series-row {
         display: grid;
+        flex: 0 1 auto;
         grid-template-columns: minmax(56px, 76px) minmax(0, 1fr) minmax(72px, 88px);
+        grid-template-rows: minmax(0, 1fr);
         column-gap: 10px;
         align-items: end;
+      }
+
+      .series-row .chart.fill {
+        align-self: stretch;
+        height: auto !important;
+        min-height: 0;
       }
 
       .series-name {
@@ -210,6 +223,12 @@ export class MetronLiveCard extends MetronCard<LiveCardConfig, History> {
     return 2 + config.entities.length;
   }
 
+  protected override defaultSize(config: LiveCardConfig): SizeSetting {
+    if (config.entities.length <= 1) return 'small';
+
+    return config.entities.length <= 4 ? 'medium' : 'large';
+  }
+
   protected override fetchData(config: LiveCardConfig, hass: HomeAssistant): Promise<History> {
     const now = Date.now();
     const step = config.step * MINUTE;
@@ -242,8 +261,10 @@ export class MetronLiveCard extends MetronCard<LiveCardConfig, History> {
         html`<span class="live"><i></i>${t('live.status', { step: config.step })}</span>`,
       )}
       <div class="series">
-        ${config.entities.map((series, index) => this._renderSeries(context, series, index))}
-        <div class="axis-row">
+        ${config.entities.map((series, index) =>
+          this._renderSeries(context, series, index, this._rowHeight(context)),
+        )}
+        <div class="axis-row" data-drop="1">
           <span></span>
           ${axis([
             { at: 0, label: t('live.ago', { minutes: config.minutes }) },
@@ -256,7 +277,25 @@ export class MetronLiveCard extends MetronCard<LiveCardConfig, History> {
     `;
   }
 
-  private _renderSeries(context: Context, series: LiveSeries, index: number): TemplateResult {
+  private _rowHeight(context: Context): number {
+    const { config, size } = context;
+
+    if (size === 'auto') return config.height;
+
+    const count = config.entities.length;
+    const content = contentHeight(size) - 40 - (size === 'small' ? 0 : 24);
+    const fitting = Math.max(1, Math.min(count, Math.floor((content + 12) / (24 + 12))));
+    const height = Math.floor((content - (fitting - 1) * 12) / fitting);
+
+    return Math.min(140, height);
+  }
+
+  private _renderSeries(
+    context: Context,
+    series: LiveSeries,
+    index: number,
+    height: number,
+  ): TemplateResult {
     const { config, hass, data, t, locale, moreInfo } = context;
     const sign = series.invert ? -1 : 1;
     const quantity = quantityOf(hass, series.entity);
@@ -273,28 +312,53 @@ export class MetronLiveCard extends MetronCard<LiveCardConfig, History> {
     const max = series.max ?? niceMax(Math.max(0, ...numbers.map((value) => Math.abs(value))));
     const formatted = formatValue(hass, series.entity, current, locale);
     const peakText = formatValue(hass, series.entity, peak, locale);
+    const name = series.name ?? entityName(hass, series.entity);
+    const step = config.step * MINUTE;
+    const start = context.now - values.length * step;
+    const tip = (slot: number): Tip | undefined => {
+      const value = values[slot];
+
+      if (value === undefined) return undefined;
+
+      return {
+        title: formatTime(start + slot * step, locale),
+        rows: [
+          { label: name, value: tipValue(formatValue(hass, series.entity, value, locale)), color },
+        ],
+      };
+    };
 
     return html`<div
       class="series-row clickable"
+      style="height:${height}px;min-height:${Math.min(height, 20)}px"
+      data-drop=${config.entities.length - index + 1}
       @click=${() => {
         moreInfo(series.entity);
       }}
     >
-      <div class="series-name" style="--c:${color}">
-        <i></i><span>${series.name ?? entityName(hass, series.entity)}</span>
-      </div>
+      <div class="series-name" style="--c:${color}"><i></i><span>${name}</span></div>
       ${
         signed
           ? mirrorChart(
               values.map((value) => (value === undefined ? undefined : Math.max(0, value))),
               values.map((value) => (value === undefined ? undefined : Math.max(0, -value))),
-              { height: config.height, max, upColor: color, downColor: color, gap: 1 },
+              {
+                height,
+                fill: 0,
+                max,
+                upColor: color,
+                downColor: color,
+                gap: 1,
+                tip,
+              },
             )
           : barChart([{ values, color, opacity: 0.85 }], {
-              height: config.height,
+              height,
+              fill: 0,
               max,
               gap: 1,
               radius: 0.5,
+              tip,
             })
       }
       <div class="series-value">

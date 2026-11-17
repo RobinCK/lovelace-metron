@@ -2,6 +2,7 @@ import { css, html, nothing } from 'lit';
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize, SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { findEntities } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
@@ -21,6 +22,8 @@ export interface StatusCardConfig extends BaseConfig {
 type Context = CardContext<StatusCardConfig, never>;
 
 export class MetronStatusCard extends MetronCard<StatusCardConfig> {
+  static override maxSize: CardSize = 'small';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     itemStyles,
@@ -37,11 +40,13 @@ export class MetronStatusCard extends MetronCard<StatusCardConfig> {
       .chips {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(var(--chip-min, 104px), 1fr));
+        margin: auto 0;
       }
 
       .chip {
         display: flex;
         flex-direction: column;
+        justify-content: center;
         gap: 6px;
         min-width: 0;
         padding: 14px;
@@ -129,17 +134,29 @@ export class MetronStatusCard extends MetronCard<StatusCardConfig> {
     return html`
       ${config.title ? header(config.title) : nothing}
       <div class="chips" style="--chip-min:${config.min_width}px">
-        ${config.chips.map((chip, index) => this._renderChip(context, chip, index))}
+        ${config.chips.map((chip, index) =>
+          this._renderChip(context, chip, index, config.chips.length - index),
+        )}
       </div>
     `;
   }
 
-  private _renderChip(context: Context, chip: ItemConfig, index: number): TemplateResult {
+  protected override defaultSize(): SizeSetting {
+    return 'auto';
+  }
+
+  private _renderChip(
+    context: Context,
+    chip: ItemConfig,
+    index: number,
+    drop: number,
+  ): TemplateResult {
     const { hass, t, locale, moreInfo } = context;
     const view = describeItem(hass, chip, index, t, locale);
 
     return html`<div
       class="chip clickable"
+      data-drop=${drop}
       @click=${() => {
         moreInfo(chip.entity);
       }}

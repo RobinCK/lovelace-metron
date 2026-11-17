@@ -3,6 +3,7 @@ import type { CSSResultGroup, PropertyDeclarations, TemplateResult } from 'lit';
 import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { formatEnergy, formatMoney, formatMonth, formatNumber, unitText } from '../../core/format';
 import type { Formatted } from '../../core/format';
@@ -13,6 +14,7 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { header, legend, meta, stats } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
 import {
   energyFields,
   energySeries,
@@ -121,7 +123,7 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
         display: flex;
         align-items: flex-end;
         gap: 4px;
-        height: ${CHART_HEIGHT}px;
+        height: var(--chart, ${CHART_HEIGHT}px);
         border-bottom: 1px solid var(--m-line);
       }
 
@@ -219,6 +221,10 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
     return 7;
   }
 
+  protected override defaultSize(): SizeSetting {
+    return 'large';
+  }
+
   protected override refreshInterval(): number {
     return 6 * HOUR;
   }
@@ -304,7 +310,8 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, hass, t, locale } = context;
+    const { config, data, hass, size, t, locale } = context;
+    const chart = size === 'medium' ? 56 : size === 'large' ? 150 : CHART_HEIGHT;
     const title = config.title ?? t('expansion.title');
     const description = config.netting ? t('expansion.meta_netting') : t('expansion.meta');
 
@@ -377,9 +384,34 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
     const [generationNow, generationNext] = pair(current.generated, planned.generated);
     const [exportNow, exportNext] = pair(current.exported, planned.exported);
 
+    const kwh = unitText('kWh', locale);
+    const months = slotHover(current.months.length, (index) => {
+      const start = data.starts[index];
+      const now = current.months[index]?.imported;
+      const next = planned.months[index]?.imported;
+
+      if (start === undefined || now === undefined) return undefined;
+
+      return {
+        title: `${formatMonth(start, locale, true)} ${new Date(start).getFullYear()}`,
+        rows: [
+          {
+            label: t('expansion.now_short'),
+            value: `${formatNumber(now, 0, locale)} ${kwh}`,
+            color: 'color-mix(in srgb, var(--m-text-2) 40%, transparent)',
+          },
+          {
+            label: t('expansion.with_expansion'),
+            value: `${formatNumber(next ?? 0, 0, locale)} ${kwh}`,
+            color: 'var(--m-grid)',
+          },
+        ],
+      };
+    });
+
     return html`
       ${header(title, meta(description))}
-      <div class="options">
+      <div class="options" style=${size === 'small' ? 'display:none' : ''}>
         <span>${t('expansion.panels')}</span>
         <div class="segmented">
           ${steps.map((index) => this._option('pv', index, pvLabel(index)))}
@@ -423,7 +455,7 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
               </div>`
         }
       </div>
-      <div class="section" style="gap:6px">
+      <div class="section" style="gap:6px;${size === 'small' ? 'display:none' : ''}">
         <div class="section-head">
           <span class="label">${t('expansion.import_by_month')}</span>
           ${legend([
@@ -431,15 +463,21 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
             { label: t('expansion.with_expansion'), color: 'var(--m-grid)' },
           ])}
         </div>
-        <div class="months">
+        <div
+          class="months"
+          style="--chart:${chart}px;touch-action:pan-y"
+          @pointermove=${months.move}
+          @pointerdown=${months.move}
+          @pointerleave=${months.leave}
+        >
           ${current.months.map(
             (month, index) =>
               html`<div class="month">
                 <span
-                  style="height:${((month.imported / maxImport) * CHART_HEIGHT).toFixed(1)}px;background:color-mix(in srgb, var(--m-text-2) 40%, transparent)"
+                  style="height:${((month.imported / maxImport) * chart).toFixed(1)}px;background:color-mix(in srgb, var(--m-text-2) 40%, transparent)"
                 ></span>
                 <span
-                  style="height:${(((planned.months[index]?.imported ?? 0) / maxImport) * CHART_HEIGHT).toFixed(1)}px;background:var(--m-grid)"
+                  style="height:${(((planned.months[index]?.imported ?? 0) / maxImport) * chart).toFixed(1)}px;background:var(--m-grid)"
                 ></span>
               </div>`,
           )}
@@ -448,18 +486,22 @@ export class MetronExpansionCard extends MetronCard<ExpansionCardConfig, Expansi
           ${data.starts.map((start) => html`<span>${formatMonth(start, locale)}</span>`)}
         </div>
       </div>
-      ${stats([
-        {
-          label: t('expansion.generation_year'),
-          value: `${generationNow.value} → ${generationNext.value}`,
-          unit: generationNext.unit,
-        },
-        {
-          label: t('expansion.export_year'),
-          value: `${exportNow.value} → ${exportNext.value}`,
-          unit: exportNext.unit,
-        },
-      ])}
+      ${
+        size === 'small' || size === 'medium'
+          ? nothing
+          : stats([
+              {
+                label: t('expansion.generation_year'),
+                value: `${generationNow.value} → ${generationNext.value}`,
+                unit: generationNext.unit,
+              },
+              {
+                label: t('expansion.export_year'),
+                value: `${exportNow.value} → ${exportNext.value}`,
+                unit: exportNext.unit,
+              },
+            ])
+      }
     `;
   }
 }

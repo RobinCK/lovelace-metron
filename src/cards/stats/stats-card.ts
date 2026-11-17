@@ -2,6 +2,7 @@ import { css, html, nothing } from 'lit';
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import type { StatisticsResult } from '../../core/data/statistics';
 import {
@@ -67,6 +68,8 @@ const netOf = (balance: Balance): number | undefined => {
 };
 
 export class MetronStatsCard extends MetronCard<StatsCardConfig, StatsData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -201,7 +204,7 @@ export class MetronStatsCard extends MetronCard<StatsCardConfig, StatsData> {
 
     return html`
       ${header(this._title(context), data ? meta(this._range(context, data)) : nothing)}
-      <div class="gauges">
+      <div class="gauges" style=${context.size === 'auto' ? '' : 'margin:auto 0'}>
         ${this._percentGauge(
           context,
           t('energy.self_consumption'),
@@ -218,8 +221,12 @@ export class MetronStatsCard extends MetronCard<StatsCardConfig, StatsData> {
         )}
         ${this._netGauge(context, current, previous)}
       </div>
-      ${stats(this._totals(context, current))}
+      ${context.size === 'small' ? nothing : stats(this._totals(context, current))}
     `;
+  }
+
+  private _gaugeSize(context: Context): number {
+    return context.size === 'small' ? 84 : 112;
   }
 
   private _title(context: Context): string {
@@ -277,7 +284,7 @@ export class MetronStatsCard extends MetronCard<StatsCardConfig, StatsData> {
 
     return html`<div class="gauge">
       <div class="dial">
-        ${gauge(value, color, { size: 112, stroke: 9 })}
+        ${gauge(value, color, { size: this._gaugeSize(context), stroke: 9 })}
         <div class="dial-value">
           <span
             ><b>${formatNumber(value === undefined ? undefined : value * 100, 0, locale)}</b
@@ -285,10 +292,10 @@ export class MetronStatsCard extends MetronCard<StatsCardConfig, StatsData> {
           >
         </div>
       </div>
-      <div class="ends"><span>0</span><span>100</span></div>
+      ${context.size === 'small' ? nothing : html`<div class="ends"><span>0</span><span>100</span></div>`}
       <span class="gauge-label">${label}</span>
       ${
-        delta === undefined
+        delta === undefined || context.size === 'small'
           ? nothing
           : this._delta(
               t,
@@ -317,15 +324,26 @@ export class MetronStatsCard extends MetronCard<StatsCardConfig, StatsData> {
 
     return html`<div class="gauge">
       <div class="dial">
-        ${gauge(fraction, color, { size: 112, stroke: 9, origin: 0.5, marker: true })}
+        ${gauge(fraction, color, {
+          size: this._gaugeSize(context),
+          stroke: 9,
+          origin: 0.5,
+          marker: true,
+        })}
         <div class="dial-value"><b>${value.value}</b><small>${value.unit}</small></div>
       </div>
-      <div class="ends"><span>${t('stats.export')}</span><span>${t('stats.import')}</span></div>
+      ${
+        context.size === 'small'
+          ? nothing
+          : html`<div class="ends">
+              <span>${t('stats.export')}</span><span>${t('stats.import')}</span>
+            </div>`
+      }
       <span class="gauge-label"
         >${exporting ? t('stats.net_to_grid') : t('stats.net_from_grid')}</span
       >
       ${
-        change === undefined || !config.compare
+        change === undefined || !config.compare || context.size === 'small'
           ? nothing
           : this._delta(t, config, `${formatSigned(change, 0, locale)} %`, change, false)
       }

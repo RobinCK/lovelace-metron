@@ -3,12 +3,19 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { HOUR, MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { energySince, hourlyChanges } from '../../core/data/energy';
 import { fetchStatistics } from '../../core/data/statistics';
 import type { StatisticRow, StatisticsResult } from '../../core/data/statistics';
 import { entityName, entityOf, formatEntity, readNumber } from '../../core/entities';
-import { formatDuration, formatNumber, formatTime, unitText } from '../../core/format';
+import {
+  formatDuration,
+  formatEnergy,
+  formatNumber,
+  formatTime,
+  unitText,
+} from '../../core/format';
 import { hourOfDay, startOfDay } from '../../core/time';
 import { findEntities } from '../../core/stub';
 import type { HomeAssistant } from '../../types/ha';
@@ -16,6 +23,7 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { header, stateIcon } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover, tipValue } from '../../ui/tip';
 
 export interface DeviceConfig {
   readonly name?: string;
@@ -214,6 +222,7 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
         align-items: flex-end;
         gap: 1px;
         height: 20px;
+        touch-action: pan-y;
       }
 
       .spark span {
@@ -324,6 +333,12 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
     return 2 + config.devices.length;
   }
 
+  protected override defaultSize(config: DevicesCardConfig): SizeSetting {
+    if (config.devices.length <= 4) return 'medium';
+
+    return 'large';
+  }
+
   protected override async fetchData(
     config: DevicesCardConfig,
     hass: HomeAssistant,
@@ -374,13 +389,13 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
           <b>${formatNumber(totalPower / 1000, 2, locale)}</b> ${kw}</span
         >`,
       )}
-      ${this._renderShares(rows, totalEnergy)}
+      ${this._renderShares(rows, totalEnergy, rows.length + 2)}
       <div class="table" style="--spark:${config.sparkline ? '72px' : '0px'}">
         <div class="device headings">
           <span></span><span>${t('devices.device')}</span
           ><span>${config.sparkline ? '00–24' : ''}</span><span>${kw}</span><span>${kwh}</span>
         </div>
-        ${rows.map((row) => this._renderRow(context, row))}
+        ${rows.map((row, index) => this._renderRow(context, row, rows.length - index + 1))}
         ${unaccounted ? this._renderUnaccounted(context, unaccounted) : nothing}
       </div>
     `;
@@ -447,10 +462,11 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
   private _renderShares(
     rows: readonly DeviceRow[],
     total: number,
+    drop: number,
   ): TemplateResult | typeof nothing {
     if (total <= 0) return nothing;
 
-    return html`<div class="shares" role="img">
+    return html`<div class="shares" role="img" data-drop=${drop}>
       ${rows.map((row) => {
         const share = (row.energy ?? 0) / total;
 
@@ -487,14 +503,37 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
   }
 
   private _renderSpark(context: Context, row: DeviceRow): TemplateResult | typeof nothing {
-    const { config, now } = context;
+    const { config, data, locale, now } = context;
 
     if (!config.sparkline) return html`<span></span>`;
 
     const max = Math.max(0, ...row.hours.map((value) => value ?? 0));
     const current = hourOfDay(now);
+    const start = data?.start ?? startOfDay(now);
+    const hover = slotHover(row.hours.length, (hour) => {
+      if (hour > current) return undefined;
 
-    return html`<div class="spark" aria-hidden="true">
+      const from = start + hour * HOUR;
+
+      return {
+        title: `${formatTime(from, locale)}–${formatTime(from + HOUR, locale)}`,
+        rows: [
+          {
+            label: row.name,
+            value: tipValue(formatEnergy(row.hours[hour] ?? 0, locale)),
+            color: row.color,
+          },
+        ],
+      };
+    });
+
+    return html`<div
+      class="spark"
+      aria-hidden="true"
+      @pointermove=${hover.move}
+      @pointerdown=${hover.move}
+      @pointerleave=${hover.leave}
+    >
       ${row.hours.map((value, index) => {
         if (index > current || !value || max <= 0) return html`<span></span>`;
 
@@ -505,13 +544,14 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
     </div>`;
   }
 
-  private _renderRow(context: Context, row: DeviceRow): TemplateResult {
+  private _renderRow(context: Context, row: DeviceRow, drop: number): TemplateResult {
     const { hass, locale, moreInfo } = context;
     const device = row.device;
     const active = row.activity.kind === 'running' || row.activity.kind === 'always';
 
     return html`<div
       class="device clickable"
+      data-drop=${drop}
       @click=${() => {
         moreInfo(device.power ?? device.energy);
       }}
@@ -543,7 +583,7 @@ export class MetronDevicesCard extends MetronCard<DevicesCardConfig, DevicesData
   ): TemplateResult {
     const { t, locale } = context;
 
-    return html`<div class="device">
+    return html`<div class="device" data-drop="1">
       <div class="badge dashed">
         <ha-icon icon="mdi:help-circle-outline" style="color:var(--m-muted)"></ha-icon>
       </div>

@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import type { StatisticRow } from '../../core/data/statistics';
@@ -15,6 +16,7 @@ import type { ConfigForm } from '../../ui/form';
 import { header, meta, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { elementHover } from '../../ui/tip';
 import {
   counterSeries,
   energyFields,
@@ -59,6 +61,8 @@ const valueAtHour = (rows: readonly StatisticRow[], time: number): number | unde
 };
 
 export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -85,7 +89,7 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
         position: relative;
         display: flex;
         gap: 2px;
-        height: ${SOC_HEIGHT}px;
+        height: var(--soc, ${SOC_HEIGHT}px);
       }
 
       .soc .reserve {
@@ -235,7 +239,9 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, locale } = context;
+    const { config, data, size, t, locale } = context;
+    const small = size === 'small';
+    const socHeight = small ? 96 : SOC_HEIGHT;
     const title = config.title ?? t('nights.title');
     const parts = [
       t('nights.count', { count: data?.nights.length ?? config.days }),
@@ -251,11 +257,13 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
 
     const maxImport = Math.max(1, ...data.nights.map((night) => night.imported ?? 0));
     const soc = (value: number): string =>
-      `${((Math.min(100, Math.max(0, value)) / 100) * SOC_HEIGHT).toFixed(1)}px`;
+      `${((Math.min(100, Math.max(0, value)) / 100) * socHeight).toFixed(1)}px`;
+    const percent = (value: number | undefined): string =>
+      value === undefined ? '—' : `${formatNumber(value, 0, locale)} %`;
 
     return html`
       ${header(title, meta(parts.join(' · ')))}
-      <div class="legend">
+      <div class="legend" style=${size === 'auto' ? '' : 'display:none'}>
         <span
           ><i class="dot" style="--c:var(--m-muted)"></i
           >${t('nights.evening', { time: `${String(config.evening).padStart(2, '0')}:00` })}</span
@@ -265,14 +273,14 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
         <span><i style="--c:var(--m-grid)"></i>${t('nights.import')}</span>
       </div>
       <div class="plot">
-        <div class="scale" style="height:${SOC_HEIGHT}px">
+        <div class="scale" style="height:${socHeight}px">
           <span style="top:0">100</span>
           <span style="top:50%">50</span>
           <span style="top:${(100 - config.battery_reserve).toFixed(0)}%;color:var(--m-solar)"
             >${config.battery_reserve}</span
           >
         </div>
-        <div class="soc">
+        <div class="soc" style="--soc:${socHeight}px">
           <div class="guide" style="top:50%"></div>
           <div class="reserve" style="bottom:${soc(config.battery_reserve)}"></div>
           ${data.nights.map((night) => {
@@ -281,7 +289,33 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
             const top = night.evening ?? night.morning ?? 0;
             const bottom = night.morning ?? top;
 
-            return html`<div class="night" title="${formatDate(night.start, locale)}">
+            const hover = elementHover(() => ({
+              title: formatDate(night.start, locale, {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+              }),
+              rows: [
+                {
+                  label: t('nights.tip_evening'),
+                  value: percent(night.evening),
+                  color: 'var(--m-muted)',
+                },
+                { label: t('nights.tip_morning'), value: percent(night.morning), color },
+                {
+                  label: t('nights.import'),
+                  value: `${formatNumber(night.imported ?? 0, 1, locale)} ${unitText('kWh', locale)}`,
+                  color: 'var(--m-grid)',
+                },
+              ],
+            }));
+
+            return html`<div
+              class="night"
+              @pointermove=${hover.move}
+              @pointerdown=${hover.move}
+              @pointerleave=${hover.leave}
+            >
               <span
                 class="line"
                 style="bottom:${soc(bottom)};height:${soc(Math.max(0, top - bottom))};background:${color}"
@@ -291,8 +325,10 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
             </div>`;
           })}
         </div>
-        <span class="scale" style="font-size:9px">${unitText('kWh', locale)}</span>
-        <div class="imports">
+        <span class="scale" style="font-size:9px;${small ? 'display:none' : ''}"
+          >${unitText('kWh', locale)}</span
+        >
+        <div class="imports" style=${small ? 'display:none' : ''}>
           ${data.nights.map(
             (night) =>
               html`<span
@@ -301,9 +337,9 @@ export class MetronNightsCard extends MetronCard<NightsCardConfig, NightsData> {
           )}
         </div>
         <span></span>
-        ${this._axis(context, data)}
+        ${small ? nothing : this._axis(context, data)}
       </div>
-      ${stats(this._summary(context, data))}
+      ${small ? nothing : stats(this._summary(context, data))}
     `;
   }
 

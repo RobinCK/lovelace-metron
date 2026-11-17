@@ -29,6 +29,10 @@ One resource, one look, every card configurable from the visual editor or YAML.
   text can be replaced with `labels`.
 - **Visual editor.** Every card has a form editor; entity pickers show entity IDs, so sensors
   with the same name are easy to tell apart.
+- **Tile sizes.** Every card has a small, medium and large layout on the Home Assistant grid
+  (3, 6 and 9 rows), so a large card sits next to a medium and a small one with aligned edges, and
+  nothing jumps while the data loads.
+- **Hover.** Charts show the time and every value under the pointer; on a phone, touch and slide.
 
 ## Installation
 
@@ -60,12 +64,13 @@ resource is registered automatically.
 
 Every card accepts these options:
 
-| Option     | Type            | Default           | Description                                                                |
-| ---------- | --------------- | ----------------- | -------------------------------------------------------------------------- |
-| `title`    | string \| false | translated title  | Card title. `false` hides the header text.                                 |
-| `language` | `en` \| `uk`    | Home Assistant UI | Language of the card texts.                                                |
-| `labels`   | map             | —                 | Override any text by its translation key, e.g. `flow.home: House`.         |
-| `colors`   | map             | theme-aware       | `solar`, `home`, `battery`, `grid`, `gas`, `warning`, `cold`, `ok` colors. |
+| Option     | Type            | Default           | Description                                                                    |
+| ---------- | --------------- | ----------------- | ------------------------------------------------------------------------------ |
+| `title`    | string \| false | translated title  | Card title. `false` hides the header text.                                     |
+| `size`     | see below       | per card          | Card height: `small`, `medium`, `large` or `auto` (the height of the content). |
+| `language` | `en` \| `uk`    | Home Assistant UI | Language of the card texts.                                                    |
+| `labels`   | map             | —                 | Override any text by its translation key, e.g. `flow.home: House`.             |
+| `colors`   | map             | theme-aware       | `solar`, `home`, `battery`, `grid`, `gas`, `warning`, `cold`, `ok` colors.     |
 
 Colors can also be set globally from a theme with `metron-solar-color`, `metron-home-color`,
 `metron-battery-color`, `metron-grid-color`, `metron-gas-color`, `metron-warning-color`,
@@ -77,6 +82,33 @@ profile.
 
 The visual editor shows the entity ID under every selected entity and in the entity lists, so
 sensors with the same name are easy to tell apart.
+
+### Sizes
+
+The sizes follow the rows of the Home Assistant sections grid: `small` is 3 rows (184 px),
+`medium` 6 rows (376 px) and `large` 9 rows (568 px). Two small cards stack next to one medium,
+a small and a medium next to one large, with the edges aligned. Every card has its own layout for
+each size: a small card keeps the main value and a compact view, a medium one adds the chart, a
+large one shows everything. The height stays the same while the data loads, so the dashboard does
+not jump.
+
+In a sections view the Layout tab of the card editor can change the rows as well; the card picks
+the layout that fits the rows. In a masonry view, stacks and other containers the card takes the
+same fixed height. `auto` restores the height of the content.
+
+Available sizes and the default of every card:
+
+- **Small, medium, large; large by default:** Energy flow, Energy day, Daily calendar, Gas, Money,
+  Solar forecast, Solar expansion.
+- **Small, medium, large; the default follows the content:** Load now (large with phases),
+  Tiles (one row of tiles small, two medium, more large), Live power (one sensor small, up to four
+  medium), Consumers (up to four devices medium), Outage headroom (up to three appliances medium),
+  Losses (up to three stages medium), PV strings (up to four strings medium), Period comparison
+  (up to five metrics medium), Day clock (medium).
+- **Small, medium; medium by default:** Metrics, Month history, Year by months, Load profile,
+  Solar year, Heating season, Tariff zones, Monthly limit, Forecast accuracy, Week ahead, Sun and
+  sky, Base load, Nights on battery, Load duration, Normal corridor.
+- **Small; auto by default:** Status chips.
 
 ## Cards
 

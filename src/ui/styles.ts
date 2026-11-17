@@ -3,6 +3,11 @@ import { css } from 'lit';
 export const metronStyles = css`
   :host {
     display: block;
+    height: 100%;
+  }
+
+  [data-cut] {
+    display: none !important;
   }
 
   ha-card.metron {
@@ -30,9 +35,17 @@ export const metronStyles = css`
     gap: 14px;
     height: 100%;
     box-sizing: border-box;
+    position: relative;
     padding: 16px;
     overflow: hidden;
     color: var(--m-text);
+  }
+
+  .shrink {
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .head {
@@ -226,6 +239,84 @@ export const metronStyles = css`
     display: block;
     width: 100%;
     overflow: visible;
+  }
+
+  .chart.fill {
+    flex: 0 1 auto;
+    min-height: var(--fill-min, 32px);
+  }
+
+  .chart.fill > svg {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+  }
+
+  .hoverable {
+    touch-action: pan-y;
+  }
+
+  .tip-band {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: none;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--m-text) 12%, transparent);
+    pointer-events: none;
+  }
+
+  .tip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 3;
+    display: none;
+    box-sizing: border-box;
+    min-width: 116px;
+    max-width: min(260px, calc(100% - 12px));
+    padding: 8px 10px;
+    border: 1px solid var(--m-line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--m-bg) 92%, var(--m-text));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    font-size: 12px;
+    line-height: 1.4;
+    pointer-events: none;
+  }
+
+  .tip-title {
+    margin-bottom: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    color: var(--m-text-2);
+  }
+
+  .tip-row {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .tip-row i {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+
+  .tip-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--m-text-2);
+  }
+
+  .tip-row b {
+    font-family: var(--m-mono);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--m-text);
   }
 
   .axis {

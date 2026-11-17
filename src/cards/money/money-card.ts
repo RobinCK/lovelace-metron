@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import type { StatisticsResult } from '../../core/data/statistics';
@@ -200,6 +201,10 @@ export class MetronMoneyCard extends MetronCard<MoneyCardConfig, MoneyData> {
     return 8;
   }
 
+  protected override defaultSize(): SizeSetting {
+    return 'large';
+  }
+
   protected override async fetchData(
     config: MoneyCardConfig,
     hass: HomeAssistant,
@@ -266,7 +271,7 @@ export class MetronMoneyCard extends MetronCard<MoneyCardConfig, MoneyData> {
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, hass, t, locale, now } = context;
+    const { config, data, hass, size, t, locale, now } = context;
     const title = config.title ?? t('money.title', { month: formatMonth(now, locale, true) });
 
     if (!data)
@@ -305,8 +310,10 @@ export class MetronMoneyCard extends MetronCard<MoneyCardConfig, MoneyData> {
               </div>`
         }
       </div>
-      ${this._renderElectricity(context, bill, money)} ${this._renderNetting(context, bill)}
-      ${this._renderLines(context, bill, data, money)} ${this._footnote(context)}
+      ${size === 'small' ? nothing : this._renderElectricity(context, bill, money)}
+      ${size === 'auto' || size === 'large' ? this._renderNetting(context, bill) : nothing}
+      ${size === 'small' ? nothing : this._renderLines(context, bill, data, money)}
+      ${size === 'auto' || size === 'large' ? this._footnote(context) : nothing}
     `;
   }
 
@@ -321,7 +328,7 @@ export class MetronMoneyCard extends MetronCard<MoneyCardConfig, MoneyData> {
 
     const share = Math.min(1, bill.electricity / bill.withoutSolar);
 
-    return html`<div class="section">
+    return html`<div class="section" data-drop="3">
       <span class="eyebrow">${t('money.electricity')}</span>
       <div class="compare">
         <span>${t('money.without_solar')}</span>

@@ -66,6 +66,16 @@ const isEmpty = (value: unknown): boolean =>
 const compact = (values: Values): Values =>
   Object.fromEntries(Object.entries(values).filter(([, value]) => !isEmpty(value)));
 
+const resized = (config: Values, values: Values): Values => {
+  const options = config.grid_options;
+
+  if (!('size' in values) || !isRecord(options) || !('rows' in options)) return config;
+
+  const rest = Object.fromEntries(Object.entries(options).filter(([key]) => key !== 'rows'));
+
+  return { ...config, grid_options: Object.keys(rest).length > 0 ? rest : undefined };
+};
+
 const isGroup = (field: FormField): field is GridField | ExpandableField => 'schema' in field;
 
 const entitySelector = (selector: Values): Values | undefined =>
@@ -481,7 +491,7 @@ export class MetronCardEditor extends LitElement {
   private _merge(values: Values): void {
     if (!this._config) return;
 
-    const config = compact({ ...this._config, ...values });
+    const config = compact(resized({ ...this._config, ...values }, values));
 
     this._config = config;
     this.dispatchEvent(

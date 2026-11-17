@@ -1,5 +1,7 @@
 import { createLocalize, editorLanguage } from '../core/i18n';
 import type { TranslationKey } from '../core/i18n';
+import { SIZE_SETTINGS } from '../core/size';
+import type { CardSize } from '../core/size';
 
 export interface SelectorField {
   readonly name: string;
@@ -195,4 +197,21 @@ export const createForm = (schema: readonly FormField[]): ConfigForm => {
       return translate(field.label ?? field.name);
     },
   };
+};
+
+export const withSize = (form: ConfigForm, sizes: readonly CardSize[]): ConfigForm => {
+  const t = createLocalize(editorLanguage());
+  const allowed: readonly string[] = sizes;
+  const options: SelectOption[] = [
+    ...SIZE_SETTINGS.filter((size) => allowed.includes(size)),
+    'auto' as const,
+  ].map((value) => ({ value, label: t(`editor.size_${value}`) }));
+  const field = select('size', options);
+  const [first, ...rest] = form.schema;
+
+  if (!first || !('type' in first) || first.type !== 'grid') {
+    return { ...form, schema: [field, ...form.schema] };
+  }
+
+  return { ...form, schema: [{ ...first, schema: [...first.schema, field] }, ...rest] };
 };

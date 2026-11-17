@@ -44,10 +44,15 @@ const statTemplate = (item: StatItem): TemplateResult =>
     ${item.sub ? html`<span class="sub">${item.sub}</span>` : nothing}
   </div>`;
 
-export const stats = (items: readonly StatItem[]): TemplateResult | typeof nothing =>
+export const stats = (
+  items: readonly StatItem[],
+  drop?: number,
+): TemplateResult | typeof nothing =>
   items.length === 0
     ? nothing
-    : html`<div class="stats" style="--cols:${items.length}">${items.map(statTemplate)}</div>`;
+    : html`<div class="stats" style="--cols:${items.length}" data-drop=${drop ?? nothing}>
+        ${items.map(statTemplate)}
+      </div>`;
 
 export interface LegendItem {
   readonly label: string;
@@ -55,8 +60,8 @@ export interface LegendItem {
   readonly line?: boolean;
 }
 
-export const legend = (items: readonly LegendItem[]): TemplateResult =>
-  html`<div class="legend">
+export const legend = (items: readonly LegendItem[], drop?: number): TemplateResult =>
+  html`<div class="legend" data-drop=${drop ?? nothing}>
     ${items.map(
       (item) =>
         html`<span
@@ -71,8 +76,8 @@ export interface Tick {
   readonly color?: string;
 }
 
-export const axis = (ticks: readonly Tick[]): TemplateResult =>
-  html`<div class="axis">
+export const axis = (ticks: readonly Tick[], drop?: number): TemplateResult =>
+  html`<div class="axis" data-drop=${drop ?? nothing}>
     ${ticks.map((tick) => {
       const position = Math.min(1, Math.max(0, tick.at));
       const edge = position <= 0.001 ? 'first' : position >= 0.999 ? 'last' : '';

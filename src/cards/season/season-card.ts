@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { bucketize, fetchStatistics, meanOf } from '../../core/data/statistics';
 import type { StatisticsResult } from '../../core/data/statistics';
@@ -14,6 +15,7 @@ import type { ConfigForm } from '../../ui/form';
 import { header, meta, pill, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
 import { degreeDays, specific } from '../shared/degree-days';
 import { counterSeries, resolveGas, total } from '../shared/energy-sources';
 import type { Series } from '../shared/energy-sources';
@@ -59,6 +61,8 @@ const sumUntil = (values: Series, count: number): number =>
   values.slice(0, count).reduce<number>((sum, value) => sum + (value ?? 0), 0);
 
 export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -81,8 +85,9 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
         display: flex;
         align-items: flex-end;
         gap: 2px;
-        height: ${CHART_HEIGHT}px;
+        height: var(--chart, ${CHART_HEIGHT}px);
         border-bottom: 1px solid var(--m-line);
+        touch-action: pan-y;
       }
 
       .week {
@@ -230,7 +235,7 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, locale } = context;
+    const { config, data, size, t, locale } = context;
 
     if (data?.empty) return html`<div class="empty">${t('gas.no_meter')}</div>`;
     if (!data)
@@ -287,7 +292,7 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
           </div>
         </div>
       </div>
-      <div class="legend">
+      <div class="legend" style=${size === 'auto' ? '' : 'display:none'}>
         <span><i style="--c:var(--m-gas)"></i>${t('season.this_season')}</span>
         <span><i class="projected"></i>${t('season.projected')}</span>
         <span
@@ -296,7 +301,11 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
         >
       </div>
       ${this._renderChart(context, data, thisToDate, lastToDate)}
-      ${stats(this._footer(context, data, elapsedDays, thisToDate, lastToDate))}
+      ${
+        size === 'small'
+          ? nothing
+          : stats(this._footer(context, data, elapsedDays, thisToDate, lastToDate))
+      }
     `;
   }
 
@@ -306,18 +315,58 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
     thisToDate: number,
     lastToDate: number,
   ): TemplateResult {
-    const { locale } = context;
+    const { locale, size, t } = context;
+    const chartHeight = size === 'small' ? 30 : size === 'medium' ? 118 : CHART_HEIGHT;
     const lastCumulative = cumulative(data.previous);
     const thisCumulative = cumulative(data.current);
     const ratio = lastToDate > 0 ? Math.min(3, Math.max(0.3, thisToDate / lastToDate)) : 1;
     const currentWeek = Math.floor((data.now - data.bounds.start) / (7 * DAY));
     const maxValue = Math.max(1, ...lastCumulative, ...thisCumulative) * 1.05;
     let projection = thisToDate;
-    const height = (value: number): string => `${((value / maxValue) * CHART_HEIGHT).toFixed(1)}px`;
+    const height = (value: number): string => `${((value / maxValue) * chartHeight).toFixed(1)}px`;
+    const m3 = unitText('m³', locale);
+    const hover = slotHover(data.weeks.length, (index) => {
+      const week = data.weeks[index];
+
+      if (week === undefined) return undefined;
+
+      const rows = [
+        {
+          label: t('season.this_season'),
+          value: index <= currentWeek ? thisCumulative[index] : undefined,
+          color: 'var(--m-gas)',
+        },
+        {
+          label: t('season.last_cumulative'),
+          value: lastCumulative[index],
+          color: 'var(--m-text-2)',
+        },
+      ].flatMap((row) =>
+        row.value === undefined
+          ? []
+          : [
+              {
+                label: row.label,
+                value: `${formatNumber(row.value, 0, locale)} ${m3}`,
+                color: row.color,
+              },
+            ],
+      );
+
+      return rows.length === 0
+        ? undefined
+        : { title: `${formatDate(week, locale)}–${formatDate(addDays(week, 6), locale)}`, rows };
+    });
     const fraction = (data.now - data.bounds.start) / (data.bounds.end - data.bounds.start);
 
     return html`<div class="section" style="gap:4px">
-      <div class="weeks">
+      <div
+        class="weeks"
+        style="--chart:${chartHeight}px"
+        @pointermove=${hover.move}
+        @pointerdown=${hover.move}
+        @pointerleave=${hover.leave}
+      >
         ${data.weeks.map((_, index) => {
           const ghost = lastCumulative[index] ?? 0;
 
@@ -354,7 +403,7 @@ export class MetronSeasonCard extends MetronCard<SeasonCardConfig, SeasonData> {
             : nothing
         }
       </div>
-      <div class="axis">
+      <div class="axis" style=${size === 'small' ? 'display:none' : ''}>
         ${data.weeks.map((week, index) => {
           const previous = data.weeks[index - 1];
           const isNew =

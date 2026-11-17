@@ -3,6 +3,7 @@ import type { CSSResultGroup, PropertyDeclarations, TemplateResult } from 'lit';
 import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import {
   fetchSolarForecast,
@@ -18,6 +19,7 @@ import { axis, colorOf, header, icon, legend, weatherIcon } from '../../ui/parts
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
 import {
   energyFields,
   energySeries,
@@ -112,8 +114,9 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
 
       .plot {
         position: relative;
-        height: ${CHART_HEIGHT}px;
+        height: var(--plot, ${CHART_HEIGHT}px);
         border-bottom: 1px solid var(--m-line);
+        touch-action: pan-y;
       }
 
       .slots {
@@ -262,6 +265,10 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
     return 6;
   }
 
+  protected override defaultSize(): SizeSetting {
+    return 'large';
+  }
+
   protected override refreshInterval(): number {
     return HOUR / 2;
   }
@@ -320,7 +327,7 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, now } = context;
+    const { config, data, size, t, now } = context;
     const title = config.title ?? t('forecast.title');
 
     if (!data)
@@ -338,7 +345,8 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
           { label: t('forecast.typical_home'), color: 'var(--m-home)', line: true },
         ]),
       )}
-      ${this._renderDays(context, data, selected)} ${this._renderDay(context, data, selected)}
+      ${this._renderDays(context, data, selected)}
+      ${size === 'small' ? nothing : this._renderDay(context, data, selected)}
     `;
   }
 
@@ -400,7 +408,8 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
   }
 
   private _renderDay(context: Context, data: ForecastData, selected: number): TemplateResult {
-    const { config, t, locale, now } = context;
+    const { config, size, t, locale, now } = context;
+    const plot = size === 'medium' ? 150 : size === 'large' ? 210 : CHART_HEIGHT;
     const start = addDays(startOfDay(now), selected);
     const production = Array.from(
       { length: 24 },
@@ -427,7 +436,29 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
       hours.map((hour) => data.typical[hour] ?? 0),
       config.threshold,
     );
-    const px = (value: number): string => `${((value / max) * CHART_HEIGHT).toFixed(1)}px`;
+    const px = (value: number): string => `${((value / max) * plot).toFixed(1)}px`;
+    const kw = unitText('kW', locale);
+    const hover = slotHover(hours.length, (index) => {
+      const hour = hours[index];
+
+      if (hour === undefined) return undefined;
+
+      return {
+        title: `${String(hour).padStart(2, '0')}:00–${String((hour + 1) % 24).padStart(2, '0')}:00`,
+        rows: [
+          {
+            label: t('flow.solar'),
+            value: `${formatNumber(production[hour] ?? 0, 2, locale)} ${kw}`,
+            color: 'var(--m-solar)',
+          },
+          {
+            label: t('forecast.typical_home'),
+            value: `${formatNumber(data.typical[hour] ?? 0, 2, locale)} ${kw}`,
+            color: 'var(--m-home)',
+          },
+        ],
+      };
+    });
     const fits = window ? config.appliances.filter((item) => item.power / 1000 <= window.peak) : [];
     const ticks = hours
       .filter((hour) => hour % 3 === 0)
@@ -441,7 +472,13 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
         : this._dayLabel(context, selected).toLowerCase();
 
     return html`<div class="section" style="gap:6px;padding-top:16px">
-        <div class="plot">
+        <div
+          class="plot"
+          style="--plot:${plot}px"
+          @pointermove=${hover.move}
+          @pointerdown=${hover.move}
+          @pointerleave=${hover.leave}
+        >
           ${
             window
               ? html`<div
@@ -467,7 +504,7 @@ export class MetronForecastCard extends MetronCard<ForecastCardConfig, ForecastD
         </div>
         ${axis(ticks)}
       </div>
-      <div class="panel plan">
+      <div class="panel plan" style=${size === 'medium' ? 'display:none' : ''}>
         <div>
           <span class="label">${t('forecast.window_day', { day: dayName })}</span>
           <span class="xl" style="font-size:22px"

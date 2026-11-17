@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchSamples, resample } from '../../core/data/history';
 import { fetchStatistics } from '../../core/data/statistics';
@@ -18,6 +19,8 @@ import type { ConfigForm } from '../../ui/form';
 import { axis, header, icon, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { tipValue } from '../../ui/tip';
+import type { Tip } from '../../ui/tip';
 import { imbalance, levelOf, phaseLimit, sumSeries, todayStats, totalLimit, usage } from './load';
 import type { Level, TodayStats } from './load';
 
@@ -39,6 +42,7 @@ export interface LoadCardConfig extends BaseConfig {
 }
 
 interface LoadData {
+  readonly start: number;
   readonly minutes: ReadonlyMap<string, readonly (number | undefined)[]>;
   readonly today: TodayStats;
 }
@@ -243,6 +247,43 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
         border-bottom: 1px solid var(--m-line);
       }
 
+      .compact .phase {
+        padding: 5px 0;
+      }
+
+      .phase-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12px;
+        white-space: nowrap;
+        color: var(--m-muted);
+      }
+
+      .phase-line span {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 5px;
+      }
+
+      .phase-line i {
+        align-self: center;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+
+      .phase-line b {
+        font-family: var(--m-mono);
+        font-weight: 500;
+        color: var(--m-text);
+      }
+
+      .phase-line small {
+        margin-left: -2px;
+        font-size: 10px;
+      }
+
       .phase-name {
         display: flex;
         align-items: center;
@@ -444,6 +485,10 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
     return config.phases.length > 1 ? 8 : 4;
   }
 
+  protected override defaultSize(config: LoadCardConfig): SizeSetting {
+    return config.phases.length > 1 ? 'large' : 'medium';
+  }
+
   protected override async fetchData(
     config: LoadCardConfig,
     hass: HomeAssistant,
@@ -471,6 +516,7 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
     ]);
 
     return {
+      start,
       minutes: new Map(
         ids.map((id) => [id, resample(samples.get(id) ?? [], start, MINUTE, config.minutes)]),
       ),
@@ -482,15 +528,33 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, t } = context;
+    const { config, size, t } = context;
     const model = this._model(context);
     const multi = model.phases.length > 1;
+    const head = header(config.title ?? t('load.title'), this._badge(context, model));
+
+    if (size === 'small') {
+      return html`${head}
+      ${this._renderTotal(context, model, multi ? this._renderPhaseLine(context, model) : nothing)}`;
+    }
+
+    if (size === 'medium' && multi) {
+      return html`${head} ${this._renderTotal(context, model)}
+      ${this._renderPhases(context, model, true)} ${this._renderHistory(context, model, 40)}`;
+    }
+
+    if (size === 'medium') {
+      return html`${head} ${this._renderTotal(context, model)}
+      ${this._renderHistory(context, model, 120)} ${stats(this._stats(context, model), 3)}`;
+    }
+
+    const height = size === 'large' ? (multi ? 96 : 300) : 48;
 
     return html`
-      ${header(config.title ?? t('load.title'), this._badge(context, model))}
-      ${this._renderTotal(context, model)} ${multi ? this._renderPhases(context, model) : nothing}
-      ${multi ? this._renderHint(context, model) : nothing} ${this._renderHistory(context, model)}
-      ${stats(this._stats(context, model))}
+      ${head} ${this._renderTotal(context, model)}
+      ${multi ? this._renderPhases(context, model, false) : nothing}
+      ${multi ? this._renderHint(context, model) : nothing}
+      ${this._renderHistory(context, model, height)} ${stats(this._stats(context, model), 3)}
     `;
   }
 
@@ -563,7 +627,11 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
     return html`<span class="pill" style="--tone:${LEVEL_COLORS[level]}"><i></i>${text}</span>`;
   }
 
-  private _renderTotal(context: Context, model: Model): TemplateResult {
+  private _renderTotal(
+    context: Context,
+    model: Model,
+    extra: TemplateResult | typeof nothing = nothing,
+  ): TemplateResult {
     const { config, t, locale, data } = context;
     const total = formatPower(model.total, locale);
     const peak = data?.today.peak;
@@ -610,7 +678,7 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
               }
             </div>`
       }
-      <div class="caption">
+      <div class="caption" data-drop="8">
         <span>${left}</span>
         ${
           peak
@@ -624,6 +692,24 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
             : nothing
         }
       </div>
+      ${extra}
+    </div>`;
+  }
+
+  private _renderPhaseLine(context: Context, model: Model): TemplateResult {
+    const { locale } = context;
+
+    return html`<div class="phase-line">
+      ${model.phases.map((phase) => {
+        const power = formatPower(phase.power, locale);
+
+        return html`<span
+          ><i style="background:${phase.color}"></i>${phase.name}
+          <b style=${phase.level === 'ok' ? '' : `color:${LEVEL_COLORS[phase.level]}`}
+            >${power.value}</b
+          ><small>${power.unit}</small></span
+        >`;
+      })}
     </div>`;
   }
 
@@ -662,26 +748,32 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
     return html`<div class="limit"><span>${label}</span><b>${value} ${t('unit.kw')}</b></div>`;
   }
 
-  private _renderPhases(context: Context, model: Model): TemplateResult {
+  private _renderPhases(context: Context, model: Model, compact: boolean): TemplateResult {
     const { config, locale, t } = context;
     const limit = model.phases.find((phase) => phase.limit !== undefined)?.limit;
     const scale = limit ?? niceMax(Math.max(0, ...model.phases.map((p) => p.peak ?? p.power ?? 0)));
     const unit = config.breaker !== undefined ? t('unit.a') : t('unit.kw');
     const top = config.breaker ?? scale / 1000;
 
-    return html`<div class="phases">
+    return html`<div class="phases ${compact ? 'compact' : ''}" data-drop="7">
       <div class="phase-list">
-        ${model.phases.map((phase, index) => this._renderPhase(context, phase, index, scale))}
+        ${model.phases.map((phase, index) =>
+          this._renderPhase(context, phase, index, scale, compact),
+        )}
       </div>
-      <div class="phase-axis">
-        <span></span>
-        ${axis([
-          { at: 0, label: '0' },
-          { at: 0.5, label: formatNumber(top / 2, top >= 20 ? 1 : 2, locale) },
-          { at: 1, label: `${formatNumber(top, top >= 20 ? 0 : 1, locale)} ${unit}` },
-        ])}
-        <span class="note">${t('load.peak_mark', { minutes: config.minutes })}</span>
-      </div>
+      ${
+        compact
+          ? nothing
+          : html`<div class="phase-axis" data-drop="2">
+              <span></span>
+              ${axis([
+                { at: 0, label: '0' },
+                { at: 0.5, label: formatNumber(top / 2, top >= 20 ? 1 : 2, locale) },
+                { at: 1, label: `${formatNumber(top, top >= 20 ? 0 : 1, locale)} ${unit}` },
+              ])}
+              <span class="note">${t('load.peak_mark', { minutes: config.minutes })}</span>
+            </div>`
+      }
     </div>`;
   }
 
@@ -690,6 +782,7 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
     phase: PhaseView,
     index: number,
     scale: number,
+    compact: boolean,
   ): TemplateResult {
     const { config, locale, t, moreInfo } = context;
     const fill = phase.ratio ?? (phase.power === undefined ? 0 : phase.power / scale);
@@ -728,7 +821,11 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
           ><b style=${phase.level === 'ok' ? '' : `--v:${color}`}>${power.value}</b
           ><small> ${power.unit}</small></span
         >
-        ${details.length > 0 ? html`<span class="mono">${details.join(' · ')}</span>` : nothing}
+        ${
+          details.length > 0 && !compact
+            ? html`<span class="mono" data-drop="5">${details.join(' · ')}</span>`
+            : nothing
+        }
       </div>
     </div>`;
   }
@@ -767,35 +864,83 @@ export class MetronLoadCard extends MetronCard<LoadCardConfig, LoadData> {
           })
         : t('load.hint_plain', { spread: text(spread.spread), high: high.name, low: low.name });
 
-    return html`<div class="hint">${icon('mdi:swap-horizontal')}<span>${message}</span></div>`;
+    return html`<div class="hint" data-drop="1">
+      ${icon('mdi:swap-horizontal')}<span>${message}</span>
+    </div>`;
   }
 
-  private _renderHistory(context: Context, model: Model): TemplateResult {
+  private _renderHistory(context: Context, model: Model, height: number): TemplateResult {
     const { config, t } = context;
     const positive = (values: readonly (number | undefined)[]): (number | undefined)[] =>
       values.map((value) => (value === undefined ? undefined : Math.max(0, value)));
     const label = t('load.chart', { minutes: config.minutes });
+    const tip = (index: number): Tip | undefined => this._tip(context, model, index);
     const chart =
       model.phases.length > 1
         ? barChart(
             model.phases.map((phase) => ({ values: positive(phase.history), color: phase.color })),
-            { height: 48, stacked: true, gap: 1, label },
+            { height, fill: Math.round(height / 2), stacked: true, gap: 1, label, tip },
           )
         : barChart([{ values: positive(model.history), color: 'var(--m-home)', opacity: 0.85 }], {
-            height: 48,
+            height,
+            fill: Math.round(height / 2),
             gap: 1,
             radius: 0.5,
             label,
+            tip,
           });
 
-    return html`<div class="history">
+    return html`<div class="history shrink" data-drop="6">
       ${chart}
-      ${axis([
-        { at: 0, label: t('live.ago', { minutes: config.minutes }) },
-        { at: 0.5, label: `−${Math.round(config.minutes / 2)}` },
-        { at: 1, label: t('common.now').toLowerCase() },
-      ])}
+      ${axis(
+        [
+          { at: 0, label: t('live.ago', { minutes: config.minutes }) },
+          { at: 0.5, label: `−${Math.round(config.minutes / 2)}` },
+          { at: 1, label: t('common.now').toLowerCase() },
+        ],
+        4,
+      )}
     </div>`;
+  }
+
+  private _tip(context: Context, model: Model, index: number): Tip | undefined {
+    const { config, data, locale, now, t } = context;
+    const total = model.history[index];
+    const start = data?.start ?? now - config.minutes * MINUTE;
+    const title = formatTime(start + index * MINUTE, locale);
+
+    if (model.phases.length <= 1) {
+      return total === undefined
+        ? undefined
+        : {
+            title,
+            rows: [
+              {
+                label: t('load.input'),
+                value: tipValue(formatPower(total, locale)),
+                color: 'var(--m-home)',
+              },
+            ],
+          };
+    }
+
+    const rows = model.phases.flatMap((phase) => {
+      const value = phase.history[index];
+
+      return value === undefined
+        ? []
+        : [{ label: phase.name, value: tipValue(formatPower(value, locale)), color: phase.color }];
+    });
+
+    if (rows.length === 0) return undefined;
+
+    return {
+      title,
+      rows:
+        total === undefined
+          ? rows
+          : [...rows, { label: t('load.total'), value: tipValue(formatPower(total, locale)) }],
+    };
   }
 
   private _stats(context: Context, model: Model): StatItem[] {

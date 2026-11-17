@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { overlap } from '../../core/data/history';
 import { fetchStatistics } from '../../core/data/statistics';
@@ -270,6 +271,10 @@ export class MetronWeekCompareCard extends MetronCard<WeekCompareCardConfig, Com
     return 2 + config.metrics.length;
   }
 
+  protected override defaultSize(config: WeekCompareCardConfig): SizeSetting {
+    return config.metrics.length <= 5 ? 'medium' : 'large';
+  }
+
   protected override async fetchData(
     config: WeekCompareCardConfig,
     hass: HomeAssistant,
@@ -343,14 +348,17 @@ export class MetronWeekCompareCard extends MetronCard<WeekCompareCardConfig, Com
         </div>
         ${
           data
-            ? rows.map((row) => this._renderRow(context, row))
+            ? rows.map((row, index) => this._renderRow(context, row, rows.length - index + 1))
             : html`<div class="empty">${t('common.loading')}</div>`
         }
       </div>
-      ${legend([
-        { label: t('compare.better'), color: 'var(--m-ok)' },
-        { label: t('compare.worse'), color: 'var(--m-warn)' },
-      ])}
+      ${legend(
+        [
+          { label: t('compare.better'), color: 'var(--m-ok)' },
+          { label: t('compare.worse'), color: 'var(--m-warn)' },
+        ],
+        1,
+      )}
     `;
   }
 
@@ -481,7 +489,7 @@ export class MetronWeekCompareCard extends MetronCard<WeekCompareCardConfig, Com
     };
   }
 
-  private _renderRow(context: Context, row: Row): TemplateResult {
+  private _renderRow(context: Context, row: Row, drop: number): TemplateResult {
     const { config } = context;
     const width =
       row.change === undefined ? 0 : Math.min(50, (Math.abs(row.change) / config.scale) * 50);
@@ -489,7 +497,7 @@ export class MetronWeekCompareCard extends MetronCard<WeekCompareCardConfig, Com
     const neutral = row.change === undefined || Math.abs(row.change) < 0.5;
     const color = neutral ? 'var(--m-muted)' : row.good ? 'var(--m-ok)' : 'var(--m-warn)';
 
-    return html`<div class="grid row">
+    return html`<div class="grid row" data-drop=${drop}>
       <div class="metric"><span>${row.label}</span><small>${row.unit}</small></div>
       <span class="num last">${row.last}</span>
       <span class="num">${row.now}</span>

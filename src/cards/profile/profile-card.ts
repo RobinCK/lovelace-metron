@@ -3,10 +3,11 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import { deviceClass } from '../../core/entities';
-import { formatNumber, formatWeekday, unitText } from '../../core/format';
+import { formatNumber, formatPower, formatWeekday, unitText } from '../../core/format';
 import { addDays, firstWeekday, startOfDay, startOfWeek } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
@@ -14,6 +15,7 @@ import type { ConfigForm } from '../../ui/form';
 import { colorOf, header, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { elementHover, tipValue } from '../../ui/tip';
 import {
   energySeries,
   fetchEnergyStatistics,
@@ -43,6 +45,8 @@ const average = (values: readonly number[]): number | undefined =>
   values.length === 0 ? undefined : values.reduce((sum, value) => sum + value, 0) / values.length;
 
 export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -77,6 +81,20 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
       .heat .cell {
         aspect-ratio: 1;
         border-radius: 2px;
+      }
+
+      .heat.tall .cell {
+        aspect-ratio: auto;
+        height: 22px;
+      }
+
+      .heat.short .cell {
+        aspect-ratio: auto;
+        height: 12px;
+      }
+
+      .heat .cell:hover {
+        outline: 1px solid var(--m-text);
       }
 
       .hours {
@@ -194,7 +212,7 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, locale } = context;
+    const { config, data, size, t, locale } = context;
     const color = colorOf(config.color ?? 'home');
     const values = (data?.grid ?? [])
       .flat()
@@ -212,24 +230,44 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
       ${
         data
           ? html`<div class="section" style="gap:4px">
-              <div class="heat" role="img" aria-label=${t('profile.chart_label')}>
+              <div
+                class="heat ${size === 'medium' ? 'tall' : size === 'small' ? 'short' : ''}"
+                role="img"
+                aria-label=${t('profile.chart_label')}
+              >
                 ${data.grid.map(
                   (row, index) =>
                     html`<span class="row-label"
                         >${formatWeekday(addDays(data.weekStart, index), locale)}</span
-                      >${row.map((value) => {
+                      >${row.map((value, hour) => {
                         const alpha =
                           value === undefined ? 0 : 0.06 + 0.94 * Math.min(1, value / scaleMax);
+                        const hover = elementHover(() =>
+                          value === undefined
+                            ? undefined
+                            : {
+                                title: `${formatWeekday(addDays(data.weekStart, index), locale)} · ${String(hour).padStart(2, '0')}:00–${String((hour + 1) % 24).padStart(2, '0')}:00`,
+                                rows: [
+                                  {
+                                    label: t('profile.average'),
+                                    value: tipValue(formatPower(value * 1000, locale)),
+                                    color,
+                                  },
+                                ],
+                              },
+                        );
 
                         return html`<span
                           class="cell"
-                          title=${value === undefined ? '' : formatNumber(value, 2, locale)}
+                          @pointermove=${hover.move}
+                          @pointerdown=${hover.move}
+                          @pointerleave=${hover.leave}
                           style="background:color-mix(in srgb, ${color} ${(alpha * 100).toFixed(0)}%, var(--m-track))"
                         ></span>`;
                       })}`,
                 )}
               </div>
-              <div class="hours">
+              <div class="hours" data-drop="2">
                 <span></span>
                 ${Array.from(
                   { length: 24 },
@@ -240,7 +278,7 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
             </div>`
           : html`<div class="empty">${t('common.loading')}</div>`
       }
-      ${data ? stats(this._summary(context, data)) : nothing}
+      ${data && size !== 'small' ? stats(this._summary(context, data), 1) : nothing}
     `;
   }
 

@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import type { StatisticsResult } from '../../core/data/statistics';
@@ -15,6 +16,7 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { colorOf, header, pill } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
 import { DASHBOARD_ENERGY } from '../shared/energy-sources';
 import type { EnergyConfig } from '../shared/energy-sources';
 import { fetchHourlyLoad, inWindow } from '../shared/hourly';
@@ -51,6 +53,8 @@ type Context = CardContext<BaseloadCardConfig, BaseloadData>;
 const CHART_HEIGHT = 80;
 
 export class MetronBaseloadCard extends MetronCard<BaseloadCardConfig, BaseloadData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -101,7 +105,8 @@ export class MetronBaseloadCard extends MetronCard<BaseloadCardConfig, BaseloadD
 
       .area {
         position: relative;
-        height: ${CHART_HEIGHT}px;
+        height: var(--chart, ${CHART_HEIGHT}px);
+        touch-action: pan-y;
         border-radius: 6px;
         background: var(--m-panel);
       }
@@ -336,7 +341,8 @@ export class MetronBaseloadCard extends MetronCard<BaseloadCardConfig, BaseloadD
           }
         </div>
       </div>
-      ${this._renderChart(context, data, step)} ${this._renderBreakdown(context, data, base)}
+      ${this._renderChart(context, data, step)}
+      ${context.size === 'small' ? nothing : this._renderBreakdown(context, data, base)}
     `;
   }
 
@@ -345,14 +351,15 @@ export class MetronBaseloadCard extends MetronCard<BaseloadCardConfig, BaseloadD
     data: BaseloadData,
     step: ReturnType<typeof detectStep>,
   ): TemplateResult {
-    const { t, locale } = context;
+    const { size, t, locale } = context;
+    const chart = size === 'small' ? 40 : CHART_HEIGHT;
     const known = data.minima.filter((value): value is number => value !== undefined);
 
     if (known.length === 0) return html`<div class="empty">${t('common.no_data')}</div>`;
 
     const low = Math.floor((Math.min(...known) * 0.9) / 50) * 50;
     const high = Math.ceil((Math.max(...known) * 1.1) / 50) * 50;
-    const y = (value: number): number => ((high - value) / (high - low || 1)) * CHART_HEIGHT;
+    const y = (value: number): number => ((high - value) / (high - low || 1)) * chart;
     const count = data.minima.length;
     const level = (
       from: number,
@@ -368,13 +375,41 @@ export class MetronBaseloadCard extends MetronCard<BaseloadCardConfig, BaseloadD
         ${label ? html`<span>${label}</span>` : nothing}
       </div>`;
 
-    return html`<div class="plot">
+    const w = unitText('W', locale);
+    const hover = slotHover(count, (index) => {
+      const value = data.minima[index];
+
+      if (value === undefined) return undefined;
+
+      return {
+        title: formatDate(addDays(data.start, index), locale, {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        }),
+        rows: [
+          {
+            label: t('baseload.night_minimum'),
+            value: `${formatNumber(value, 0, locale)} ${w}`,
+            color: 'var(--m-home)',
+          },
+        ],
+      };
+    });
+
+    return html`<div class="plot" data-drop="1">
       <div class="scale">
         <span style="top:0">${formatNumber(high, 0, locale)}</span>
         <span style="top:50%">${formatNumber((high + low) / 2, 0, locale)}</span>
         <span style="top:100%">${formatNumber(low, 0, locale)}</span>
       </div>
-      <div class="area">
+      <div
+        class="area"
+        style="--chart:${chart}px"
+        @pointermove=${hover.move}
+        @pointerdown=${hover.move}
+        @pointerleave=${hover.leave}
+      >
         ${
           step
             ? html`${level(0, step.index, step.before, 'var(--m-muted)')}
@@ -390,8 +425,8 @@ export class MetronBaseloadCard extends MetronCard<BaseloadCardConfig, BaseloadD
               ></span>`,
         )}
       </div>
-      <span class="scale" style="font-size:9px">${unitText('W', locale)}</span>
-      <div class="axis">
+      <span class="scale" style="font-size:9px">${size === 'small' ? '' : w}</span>
+      <div class="axis" style=${size === 'small' ? 'display:none' : ''}>
         <span class="first" style="left:0">${formatDate(data.start, locale)}</span>
         <span style="left:50%"
           >${formatDate(addDays(data.start, Math.floor(count / 2)), locale)}</span

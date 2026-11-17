@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { readNumber } from '../../core/entities';
 import { formatDuration, formatNumber, formatPower, formatTime, MINUS } from '../../core/format';
@@ -342,14 +343,19 @@ export class MetronHeadroomCard extends MetronCard<HeadroomCardConfig, undefined
     return 4 + Math.ceil(config.appliances.length / 2);
   }
 
+  protected override defaultSize(config: HeadroomCardConfig): SizeSetting {
+    return config.appliances.length <= 3 ? 'medium' : 'large';
+  }
+
   protected renderBody(context: Context): TemplateResult {
-    const { config, t } = context;
+    const { config, size, t } = context;
     const model = this._model(context);
 
     return html`
       ${header(config.title ?? t('headroom.title'), this._badge(context, model))}
-      ${this._renderPhases(context, model)} ${this._renderAppliances(context, model)}
-      ${stats(this._stats(context, model))}
+      ${this._renderPhases(context, model)}
+      ${size === 'small' ? nothing : this._renderAppliances(context, model)}
+      ${size === 'small' ? nothing : stats(this._stats(context, model), 1)}
     `;
   }
 
@@ -408,7 +414,7 @@ export class MetronHeadroomCard extends MetronCard<HeadroomCardConfig, undefined
     const { config, locale, t } = context;
 
     return html`<div class="section">
-      <div class="section-head">
+      <div class="section-head" data-drop="1">
         <b>${t('headroom.free')}</b
         ><span
           >${t('headroom.limit_note', {
@@ -474,8 +480,8 @@ export class MetronHeadroomCard extends MetronCard<HeadroomCardConfig, undefined
         <b>${t('headroom.appliances')}</b><span>${t('headroom.if_now')}</span>
       </div>
       <div class="appliances">
-        ${rows.map(({ appliance, result }) =>
-          this._renderAppliance(context, model, appliance, result),
+        ${rows.map(({ appliance, result }, index) =>
+          this._renderAppliance(context, model, appliance, result, rows.length - index + 1),
         )}
       </div>
     </div>`;
@@ -486,6 +492,7 @@ export class MetronHeadroomCard extends MetronCard<HeadroomCardConfig, undefined
     model: Model,
     appliance: HeadroomAppliance,
     result: Assessment,
+    drop: number,
   ): TemplateResult {
     const { locale, t } = context;
     const phase = result.phase === undefined ? undefined : model.phases[result.phase];
@@ -509,7 +516,7 @@ export class MetronHeadroomCard extends MetronCard<HeadroomCardConfig, undefined
           ? t('headroom.battery_short')
           : t('headroom.no_room', { phase: phase?.name ?? '' });
 
-    return html`<div class="appliance">
+    return html`<div class="appliance" data-drop=${drop}>
       <div class="appliance-name">
         <span>${appliance.name}</span><small>${note ? `${duration} · ${note}` : duration}</small>
       </div>

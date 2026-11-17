@@ -3,6 +3,7 @@ import type { CSSResultGroup, PropertyDeclarations, SVGTemplateResult, TemplateR
 import { DAY, HOUR, MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchSolarForecast } from '../../core/data/forecast';
 import type { HourlyEnergy } from '../../core/data/forecast';
@@ -14,6 +15,7 @@ import {
   formatEnergy,
   formatNumber,
   formatPercent,
+  formatPower,
   formatTime,
   unitText,
 } from '../../core/format';
@@ -24,6 +26,8 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { axis, dotLegend, navigator, shareBar, stats } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover, tipValue } from '../../ui/tip';
+import type { Tip, TipRow } from '../../ui/tip';
 import {
   balanceOf,
   energyFields,
@@ -159,14 +163,28 @@ export class MetronEnergyDayCard extends MetronCard<EnergyDayCardConfig, DayData
         font-size: 13px;
       }
 
+      .day {
+        display: flex;
+        flex-direction: column;
+      }
+
       .profile {
-        position: relative;
+        display: flex;
+        flex-direction: column;
         padding-top: 20px;
       }
 
-      .profile svg {
-        display: block;
+      .plot {
+        position: relative;
+        flex: 0 1 auto;
+        touch-action: pan-y;
+      }
+
+      .plot svg {
+        position: absolute;
+        inset: 0;
         width: 100%;
+        height: 100%;
         overflow: visible;
       }
 
@@ -188,7 +206,7 @@ export class MetronEnergyDayCard extends MetronCard<EnergyDayCardConfig, DayData
 
       .now {
         position: absolute;
-        top: 16px;
+        top: -4px;
         bottom: 0;
         width: 1px;
         background: color-mix(in srgb, var(--m-text) 40%, transparent);
@@ -315,8 +333,12 @@ export class MetronEnergyDayCard extends MetronCard<EnergyDayCardConfig, DayData
     };
   }
 
+  protected override defaultSize(): SizeSetting {
+    return 'large';
+  }
+
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, now } = context;
+    const { config, data, size, t, now } = context;
     const selected = startOfDay(addDays(now, this._offset));
     const ready = data?.start === selected;
 
@@ -326,16 +348,22 @@ export class MetronEnergyDayCard extends MetronCard<EnergyDayCardConfig, DayData
 
     const balance = ready ? balanceOf(data.series) : {};
 
+    const top = html`<div class="top">
+      ${this._renderIntro(context, ready ? data : undefined, balance)}
+      ${config.navigation ? this._renderNavigator(context, selected) : nothing}
+    </div>`;
+    const footer = this._renderFooter(context, balance, ready ? data : undefined);
+
+    if (size === 'small') return html`${top} ${footer}`;
+
+    const plot = size === 'large' ? 176 : size === 'medium' ? 150 : undefined;
+
     return html`
-      <div class="top">
-        ${this._renderIntro(context, ready ? data : undefined, balance)}
-        ${config.navigation ? this._renderNavigator(context, selected) : nothing}
+      ${top}
+      <div class="day shrink ${ready ? '' : 'loading'}" data-drop="3">
+        ${this._renderProfile(context, ready ? data : undefined, selected, plot)}
       </div>
-      <div class=${ready ? '' : 'loading'}>
-        ${this._renderProfile(context, ready ? data : undefined, selected)}
-      </div>
-      ${this._renderBalance(context, balance)}
-      ${this._renderFooter(context, balance, ready ? data : undefined)}
+      ${size === 'medium' ? nothing : this._renderBalance(context, balance)} ${footer}
     `;
   }
 
@@ -412,6 +440,7 @@ export class MetronEnergyDayCard extends MetronCard<EnergyDayCardConfig, DayData
     context: Context,
     data: DayData | undefined,
     start: number,
+    plot: number | undefined,
   ): TemplateResult {
     const { t, locale, now } = context;
     const count = Math.round((24 * 60) / context.config.slot_minutes);
@@ -460,58 +489,113 @@ export class MetronEnergyDayCard extends MetronCard<EnergyDayCardConfig, DayData
     const guide = (value: number): SVGTemplateResult =>
       svg`<line x1="0" x2=${count * SLOT} y1=${UP - value * scale} y2=${UP - value * scale} style="stroke:var(--m-line)" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"></line>`;
 
-    return html`<div class="section">
-      <div class="profile" role="img" aria-label=${t('energy.profile_label')}>
-        <span class="tag" style="left:0;top:22px;color:var(--m-solar)">${t('flow.solar')}</span>
-        <span class="guide-label" style="top:${20 + 2}px"
-          >${formatNumber(max, 0, locale)} ${unitText('kW', locale)}</span
+    const share = (value: number): string => `${((value / height) * 100).toFixed(2)}%`;
+    const hover = slotHover(count, (index) =>
+      this._tip(context, data, start + index * slotMs, slotMs, index),
+    );
+
+    const box = plot ?? height;
+
+    return html`<div class="section shrink">
+      <div class="profile shrink" role="img" aria-label=${t('energy.profile_label')}>
+        <div
+          class="plot"
+          style="height:${box}px;min-height:${Math.round(box * 0.6)}px"
+          @pointermove=${hover.move}
+          @pointerdown=${hover.move}
+          @pointerleave=${hover.leave}
         >
-        <span class="guide-label" style="top:${20 + UP / 2 + 2}px"
-          >${formatNumber(max / 2, 0, locale)}</span
-        >
-        ${
-          forecast.length > 0 && firstFuture < count
-            ? html`<span
-                class="forecast-tag"
-                style="left:${Math.min(80, (firstFuture / count) * 100 + 2).toFixed(1)}%;top:${20 + UP - 14}px"
-                >${t('common.forecast')}</span
-              >`
-            : nothing
-        }
-        <svg
-          viewBox="0 0 ${count * SLOT} ${height}"
-          height=${height}
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          ${guide(max)}${guide(max / 2)}
-          <line
-            x1="0"
-            x2=${count * SLOT}
-            y1=${UP + 0.5}
-            y2=${UP + 0.5}
-            style="stroke:var(--m-line)"
-            vector-effect="non-scaling-stroke"
-          ></line>
-          ${bars}
-        </svg>
-        <span class="tag" style="left:0;bottom:0;color:var(--m-home)">${t('flow.home')}</span>
-        ${
-          showNow
-            ? html`<div class="now" style="left:${(nowFraction * 100).toFixed(2)}%">
-                <span>${formatTime(now, locale)}</span>
-              </div>`
-            : nothing
-        }
+          <span class="tag" style="left:0;top:2px;color:var(--m-solar)">${t('flow.solar')}</span>
+          <span class="guide-label" style="top:2px"
+            >${formatNumber(max, 0, locale)} ${unitText('kW', locale)}</span
+          >
+          <span class="guide-label" style="top:calc(${share(UP / 2)} + 2px)"
+            >${formatNumber(max / 2, 0, locale)}</span
+          >
+          ${
+            forecast.length > 0 && firstFuture < count
+              ? html`<span
+                  class="forecast-tag"
+                  style="left:${Math.min(80, (firstFuture / count) * 100 + 2).toFixed(1)}%;top:calc(${share(UP)} - 14px)"
+                  >${t('common.forecast')}</span
+                >`
+              : nothing
+          }
+          <svg
+            viewBox="0 0 ${count * SLOT} ${height}"
+            height=${height}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            ${guide(max)}${guide(max / 2)}
+            <line
+              x1="0"
+              x2=${count * SLOT}
+              y1=${UP + 0.5}
+              y2=${UP + 0.5}
+              style="stroke:var(--m-line)"
+              vector-effect="non-scaling-stroke"
+            ></line>
+            ${bars}
+          </svg>
+          <span class="tag" style="left:0;bottom:0;color:var(--m-home)">${t('flow.home')}</span>
+          ${
+            showNow
+              ? html`<div class="now" style="left:${(nowFraction * 100).toFixed(2)}%">
+                  <span>${formatTime(now, locale)}</span>
+                </div>`
+              : nothing
+          }
+        </div>
       </div>
-      ${axis([
-        { at: 0, label: '00' },
-        { at: 0.25, label: '06' },
-        { at: 0.5, label: '12' },
-        { at: 0.75, label: '18' },
-        { at: 1, label: '24' },
-      ])}
+      ${axis(
+        [
+          { at: 0, label: '00' },
+          { at: 0.25, label: '06' },
+          { at: 0.5, label: '12' },
+          { at: 0.75, label: '18' },
+          { at: 1, label: '24' },
+        ],
+        2,
+      )}
     </div>`;
+  }
+
+  private _tip(
+    context: Context,
+    data: DayData | undefined,
+    from: number,
+    length: number,
+    index: number,
+  ): Tip | undefined {
+    const { locale, now, t } = context;
+
+    if (!data) return undefined;
+
+    const past = from + length / 2 <= now;
+    const solar = past ? data.solar[index] : undefined;
+    const forecast = data.forecast?.[index];
+    const home = past ? data.home[index] : undefined;
+    const kw = (value: number): string => tipValue(formatPower(value * 1000, locale));
+    const rows: TipRow[] = [];
+
+    if (solar !== undefined)
+      rows.push({ label: t('flow.solar'), value: kw(solar), color: 'var(--m-solar)' });
+
+    if (!past && forecast !== undefined) {
+      rows.push({
+        label: t('common.forecast'),
+        value: kw(forecast),
+        color: 'color-mix(in srgb, var(--m-solar) 35%, transparent)',
+      });
+    }
+
+    if (home !== undefined)
+      rows.push({ label: t('flow.home'), value: kw(home), color: 'var(--m-home)' });
+
+    if (rows.length === 0) return undefined;
+
+    return { title: `${formatTime(from, locale)}–${formatTime(from + length, locale)}`, rows };
   }
 
   private _renderBalance(context: Context, balance: Balance): TemplateResult | typeof nothing {
@@ -534,7 +618,7 @@ export class MetronEnergyDayCard extends MetronCard<EnergyDayCardConfig, DayData
     const sum = (items: readonly { readonly value?: number }[]): number =>
       items.reduce((total, item) => total + (item.value ?? 0), 0);
 
-    return html`<div class="section" style="gap:16px">
+    return html`<div class="section" style="gap:16px" data-drop="1">
       ${
         sources.length >= 2
           ? html`<div class="section">

@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import type { StatisticRow } from '../../core/data/statistics';
@@ -16,6 +17,7 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { axis, header, pill } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
 import { dipCounts, repeatingWindow, yieldDeviation } from './analysis';
 import type { Grid, Window } from './analysis';
 
@@ -228,6 +230,10 @@ export class MetronStringsCard extends MetronCard<StringsCardConfig, StringsData
     return 3 + config.strings.length;
   }
 
+  protected override defaultSize(config: StringsCardConfig): SizeSetting {
+    return config.strings.length <= 4 ? 'medium' : 'large';
+  }
+
   protected override refreshInterval(): number {
     return 5 * MINUTE;
   }
@@ -357,8 +363,27 @@ export class MetronStringsCard extends MetronCard<StringsCardConfig, StringsData
                 ? 'var(--m-ok)'
                 : 'var(--m-warn)';
 
+          const values = (data.today[index] ?? []).slice(from, to);
+          const hover = slotHover(values.length, (offset) => {
+            const value = values[offset];
+
+            if (value === undefined) return undefined;
+
+            return {
+              title: `${slotLabel(from + offset)}–${slotLabel(from + offset + 1)}`,
+              rows: [
+                {
+                  label: nameOf(index),
+                  value: `${formatNumber(value, 2, locale)} ${unitText('kW', locale)}`,
+                  color: isFlagged ? 'var(--m-solar)' : 'var(--m-text-2)',
+                },
+              ],
+            };
+          });
+
           return html`<div
             class="table row clickable"
+            data-drop=${config.strings.length - index + 1}
             @click=${() => {
               context.moreInfo(item.entity);
             }}
@@ -367,7 +392,13 @@ export class MetronStringsCard extends MetronCard<StringsCardConfig, StringsData
               <b style=${isFlagged ? 'color:var(--m-solar)' : ''}>${nameOf(index)}</b>
               <small>${formatNumber(item.peak_power, 1, locale)} ${t('strings.kwp')}</small>
             </div>
-            <div class="spark">
+            <div
+              class="spark"
+              style="touch-action:pan-y"
+              @pointermove=${hover.move}
+              @pointerdown=${hover.move}
+              @pointerleave=${hover.leave}
+            >
               ${(data.today[index] ?? []).slice(from, to).map((value, offset) => {
                 const slot = from + offset;
                 const past = slot < nowSlot;
@@ -413,7 +444,7 @@ export class MetronStringsCard extends MetronCard<StringsCardConfig, StringsData
   ): TemplateResult {
     const { t, locale } = context;
 
-    return html`<div class="panels">
+    return html`<div class="panels" data-drop="1">
       <div class="panel">
         <span class="label">${dip ? t('strings.dip', { name }) : t('strings.no_dip')}</span>
         ${

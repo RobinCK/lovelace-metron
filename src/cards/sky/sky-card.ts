@@ -4,6 +4,7 @@ import { HOUR, MINUTE } from '../../const';
 import type { StatisticsResult } from '../../core/data/statistics';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchWeatherForecast } from '../../core/data/forecast';
 import type { WeatherForecast } from '../../core/data/forecast';
@@ -42,6 +43,8 @@ const WIDTH = 400;
 const HEIGHT = 96;
 
 export class MetronSkyCard extends MetronCard<SkyCardConfig, SkyData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -64,6 +67,7 @@ export class MetronSkyCard extends MetronCard<SkyCardConfig, SkyData> {
         display: block;
         width: 100%;
         height: auto;
+        max-height: var(--arc, none);
         overflow: visible;
       }
 
@@ -179,7 +183,7 @@ export class MetronSkyCard extends MetronCard<SkyCardConfig, SkyData> {
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, hass, t } = context;
+    const { config, hass, size, t } = context;
     const title = config.title ?? t('sky.title');
     const location = this._location(context);
     const cloud = attribute<number>(hass, config.weather, 'cloud_coverage');
@@ -198,8 +202,9 @@ export class MetronSkyCard extends MetronCard<SkyCardConfig, SkyData> {
               <b>${formatNumber(cloud, 0, context.locale)} %</b></span
             >`,
       )}
-      ${this._renderArc(context, location)} ${this._renderClouds(context, location)}
-      ${stats(this._summary(context, location))}
+      <div style=${size === 'small' ? '--arc:86px' : ''}>${this._renderArc(context, location)}</div>
+      ${size === 'small' ? nothing : this._renderClouds(context, location)}
+      ${size === 'small' ? nothing : stats(this._summary(context, location))}
     `;
   }
 

@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { DAY } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import type { StatisticsResult } from '../../core/data/statistics';
@@ -14,6 +15,7 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { axis, header, pill, stats } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
 import {
   counterSeries,
   energyFields,
@@ -55,6 +57,8 @@ const HATCH = (color: string): string =>
   `repeating-linear-gradient(135deg, color-mix(in srgb, ${color} 60%, transparent) 0 2px, color-mix(in srgb, ${color} 12%, transparent) 2px 5px)`;
 
 export class MetronBudgetCard extends MetronCard<BudgetCardConfig, BudgetData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -258,23 +262,27 @@ export class MetronBudgetCard extends MetronCard<BudgetCardConfig, BudgetData> {
         </div>
       </div>
       ${this._renderPlot(context, data, budget, used, pace, todayIndex)}
-      ${stats([
-        {
-          label: t('budget.pace'),
-          value: formatNumber(pace, 1, locale),
-          unit: t('history.per_day'),
-        },
-        {
-          label: t('budget.allowed'),
-          value: `≤ ${formatNumber(allowed, 1, locale)}`,
-          unit: t('history.per_day'),
-        },
-        {
-          label: t('budget.cut'),
-          value: `${formatNumber(cut * 100, 0, locale)} %`,
-          tone: cut > 0 ? 'warn' : 'ok',
-        },
-      ])}
+      ${
+        context.size === 'small'
+          ? nothing
+          : stats([
+              {
+                label: t('budget.pace'),
+                value: formatNumber(pace, 1, locale),
+                unit: t('history.per_day'),
+              },
+              {
+                label: t('budget.allowed'),
+                value: `≤ ${formatNumber(allowed, 1, locale)}`,
+                unit: t('history.per_day'),
+              },
+              {
+                label: t('budget.cut'),
+                value: `${formatNumber(cut * 100, 0, locale)} %`,
+                tone: cut > 0 ? 'warn' : 'ok',
+              },
+            ])
+      }
     `;
   }
 
@@ -286,8 +294,9 @@ export class MetronBudgetCard extends MetronCard<BudgetCardConfig, BudgetData> {
     pace: number,
     todayIndex: number,
   ): TemplateResult {
-    const { config, t, locale, now } = context;
-    const height = config.height;
+    const { config, size, t, locale, now } = context;
+    const height = size === 'small' ? 34 : config.height;
+    const unit = unitText(config.metric === 'gas' ? 'm³' : 'kWh', locale);
     const scale = Math.max(budget * 1.3, pace * data.days * 1.05);
     const px = (value: number): string =>
       `${Math.max(1, (Math.min(value, scale) / scale) * height).toFixed(1)}px`;
@@ -307,12 +316,59 @@ export class MetronBudgetCard extends MetronCard<BudgetCardConfig, BudgetData> {
     });
     const limitTop = height - (budget / scale) * height;
     const todayFraction = (now - data.start) / (data.days * DAY);
+    let running = 0;
+    const totals = data.daily.map((value, index) => {
+      running += index <= todayIndex ? (value ?? 0) : 0;
+
+      return index <= todayIndex ? running : used + pace * (index - todayIndex);
+    });
+    const hover = slotHover(data.daily.length, (index) => {
+      const value = totals[index];
+
+      if (value === undefined) return undefined;
+
+      const actual = index <= todayIndex;
+
+      return {
+        title: formatDate(addDays(data.start, index), locale, {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        }),
+        rows: [
+          ...(actual
+            ? [
+                {
+                  label: t('budget.day'),
+                  value: `${formatNumber(data.daily[index] ?? 0, 1, locale)} ${unit}`,
+                  color: 'var(--m-grid)',
+                },
+              ]
+            : []),
+          {
+            label: actual ? t('budget.used') : t('budget.projected'),
+            value: `${formatNumber(value, 0, locale)} ${unit}`,
+            color: value > budget ? 'var(--m-warn)' : 'var(--m-grid)',
+          },
+        ],
+      };
+    });
 
     return html`<div class="section" style="gap:6px">
       <div class="plot" style="height:${height}px">
-        <div class="columns" style="height:${height}px">${columns}</div>
+        <div
+          class="columns"
+          style="height:${height}px;touch-action:pan-y"
+          @pointermove=${hover.move}
+          @pointerdown=${hover.move}
+          @pointerleave=${hover.leave}
+        >
+          ${columns}
+        </div>
         <div class="limit" style="top:${limitTop.toFixed(1)}px">
-          <span>${t('budget.limit', { value: formatNumber(budget, 0, locale) })}</span>
+          <span
+            >${size === 'small' ? '' : t('budget.limit', { value: formatNumber(budget, 0, locale) })}</span
+          >
         </div>
         <svg viewBox="0 0 100 ${height}" preserveAspectRatio="none" aria-hidden="true">
           <line
@@ -326,26 +382,31 @@ export class MetronBudgetCard extends MetronCard<BudgetCardConfig, BudgetData> {
           ></line>
         </svg>
         ${
-          todayFraction > 0 && todayFraction < 1
+          todayFraction > 0 && todayFraction < 1 && size !== 'small'
             ? html`<div class="today" style="left:${(todayFraction * 100).toFixed(1)}%">
                 <b>${formatDate(now, locale)}</b>
               </div>`
             : nothing
         }
       </div>
-      ${axis(
-        [
-          { at: 0.5 / data.days, label: '1' },
-          {
-            at: (todayIndex + 0.5) / data.days,
-            label: String(todayIndex + 1),
-            color: 'var(--m-text)',
-          },
-          { at: (data.days - 0.5) / data.days, label: String(data.days) },
-        ].filter(
-          (tick, index, ticks) => index === 1 || Math.abs(tick.at - (ticks[1]?.at ?? 0)) > 0.08,
-        ),
-      )}
+      ${
+        size === 'small'
+          ? nothing
+          : axis(
+              [
+                { at: 0.5 / data.days, label: '1' },
+                {
+                  at: (todayIndex + 0.5) / data.days,
+                  label: String(todayIndex + 1),
+                  color: 'var(--m-text)',
+                },
+                { at: (data.days - 0.5) / data.days, label: String(data.days) },
+              ].filter(
+                (tick, index, ticks) =>
+                  index === 1 || Math.abs(tick.at - (ticks[1]?.at ?? 0)) > 0.08,
+              ),
+            )
+      }
     </div>`;
   }
 }

@@ -1,12 +1,13 @@
-import { css, html } from 'lit';
+import { css, html, nothing } from 'lit';
 import type { StatItem } from '../../ui/parts';
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import { DAY, HOUR, MINUTE } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchSamples, valueBefore } from '../../core/data/history';
-import { formatNumber, formatSigned, unitText } from '../../core/format';
+import { formatDate, formatNumber, formatSigned, unitText } from '../../core/format';
 import { niceMax } from '../../core/math';
 import { addDays, parseClock, startOfDay } from '../../core/time';
 import { findEntity } from '../../core/stub';
@@ -15,6 +16,7 @@ import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
 import { header, stats } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { slotHover } from '../../ui/tip';
 import {
   energyFields,
   energySeries,
@@ -50,6 +52,8 @@ export class MetronForecastAccuracyCard extends MetronCard<
   ForecastAccuracyCardConfig,
   AccuracyData
 > {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -77,8 +81,9 @@ export class MetronForecastAccuracyCard extends MetronCard<
         display: flex;
         align-items: flex-end;
         gap: 3px;
-        height: ${CHART_HEIGHT}px;
+        height: var(--chart, ${CHART_HEIGHT}px);
         border-bottom: 1px solid var(--m-line);
+        touch-action: pan-y;
       }
 
       .guide {
@@ -216,7 +221,8 @@ export class MetronForecastAccuracyCard extends MetronCard<
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, locale } = context;
+    const { config, data, size, t, locale } = context;
+    const chart = size === 'small' ? 64 : size === 'medium' ? 168 : CHART_HEIGHT;
     const title = config.title ?? t('accuracy.title', { days: config.days });
 
     if (!data)
@@ -227,7 +233,7 @@ export class MetronForecastAccuracyCard extends MetronCard<
       Math.max(1, ...[...data.forecast, ...data.actual].map((value) => value ?? 0)),
     );
     const px = (value: number | undefined): string =>
-      `${(((value ?? 0) / max) * CHART_HEIGHT).toFixed(1)}px`;
+      `${(((value ?? 0) / max) * chart).toFixed(1)}px`;
     const errors = data.starts.map((_, index) => {
       const forecast = data.forecast[index];
       const actual = data.actual[index];
@@ -241,6 +247,28 @@ export class MetronForecastAccuracyCard extends MetronCard<
 
       return 'var(--m-ok)';
     };
+
+    const kwh = unitText('kWh', locale);
+    const hover = slotHover(data.starts.length, (index) => {
+      const start = data.starts[index];
+
+      if (start === undefined) return undefined;
+
+      const error = errors[index];
+      const value = (series: readonly (number | undefined)[]): string =>
+        series[index] === undefined ? '—' : `${formatNumber(series[index], 1, locale)} ${kwh}`;
+
+      return {
+        title: formatDate(start, locale, { weekday: 'short', day: 'numeric', month: 'short' }),
+        rows: [
+          { label: t('accuracy.forecast'), value: value(data.forecast), color: 'var(--m-text-2)' },
+          { label: t('accuracy.actual'), value: value(data.actual), color: 'var(--m-solar)' },
+          ...(error === undefined
+            ? []
+            : [{ label: 'Δ', value: `${formatSigned(error, 0, locale)} %`, color: color(error) }]),
+        ],
+      };
+    });
 
     return html`
       ${header(
@@ -256,7 +284,13 @@ export class MetronForecastAccuracyCard extends MetronCard<
           <span style="top:50%">${formatNumber(max / 2, 0, locale)}</span>
           <span style="top:100%">${unitText('kWh', locale)}</span>
         </div>
-        <div class="columns">
+        <div
+          class="columns"
+          style="--chart:${chart}px"
+          @pointermove=${hover.move}
+          @pointerdown=${hover.move}
+          @pointerleave=${hover.leave}
+        >
           <div class="guide" style="top:50%"></div>
           ${data.starts.map(
             (_, index) =>
@@ -266,8 +300,8 @@ export class MetronForecastAccuracyCard extends MetronCard<
               </div>`,
           )}
         </div>
-        <span class="axis-label">Δ %</span>
-        <div class="row errors">
+        <span class="axis-label" style=${size === 'small' ? 'display:none' : ''}>Δ %</span>
+        <div class="row errors" style=${size === 'small' ? 'display:none' : ''}>
           ${errors.map(
             (error) =>
               html`<span style="color:${color(error)}"
@@ -280,7 +314,7 @@ export class MetronForecastAccuracyCard extends MetronCard<
           ${data.starts.map((start) => html`<span>${new Date(start).getDate()}</span>`)}
         </div>
       </div>
-      ${stats(this._summary(context, data, errors))}
+      ${size === 'small' ? nothing : stats(this._summary(context, data, errors))}
     `;
   }
 

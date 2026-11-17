@@ -3,6 +3,7 @@ import type { CSSResultGroup, PropertyDeclarations, TemplateResult } from 'lit';
 import { DAY } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import {
   formatDate,
@@ -20,6 +21,8 @@ import type { ConfigForm } from '../../ui/form';
 import { axis, navigator, pill } from '../../ui/parts';
 import type { Tick } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { tipValue } from '../../ui/tip';
+import type { Tip } from '../../ui/tip';
 import {
   energyFields,
   energySeries,
@@ -62,6 +65,8 @@ const sumAt = (split: SplitSeries, index: number): number | undefined => {
 };
 
 export class MetronHistoryCard extends MetronCard<HistoryCardConfig, HistoryData> {
+  static override maxSize: CardSize = 'medium';
+
   static override properties: PropertyDeclarations = {
     _offset: { state: true },
   };
@@ -221,7 +226,8 @@ export class MetronHistoryCard extends MetronCard<HistoryCardConfig, HistoryData
   }
 
   private _renderContent(context: Context, data: HistoryData): TemplateResult {
-    const { config, t, locale, now } = context;
+    const { config, size, t, locale, now } = context;
+    const small = size === 'small';
     const today = startOfDay(now);
     const complete = data.totals.filter((_, index) => addDays(data.start, index) < today);
     const known = complete.filter((value): value is number => value !== undefined);
@@ -237,7 +243,7 @@ export class MetronHistoryCard extends MetronCard<HistoryCardConfig, HistoryData
     const formatted = formatEnergy(sum, locale, 1);
     const todayIndex = Math.floor((today - data.start) / DAY);
     const scale = niceMax(Math.max(1, ...known, ...data.totals.map((value) => value ?? 0)));
-    const height = config.height;
+    const height = small ? 18 : size === 'medium' ? 156 : config.height;
     const opacity = (index: number): number => (index === todayIndex ? 0.55 : 1);
     const colors =
       config.mode === 'production'
@@ -298,18 +304,26 @@ export class MetronHistoryCard extends MetronCard<HistoryCardConfig, HistoryData
           }
         </div>
       </div>
-      <div class="section" style="gap:6px">
-        <div class="bars">
+      <div class="section shrink" style="gap:6px">
+        <div class="bars shrink">
           ${barChart(
             parts.map((values, index) => ({
               values,
               color: colors[index] ?? 'var(--m-text)',
               opacity,
             })),
-            { height, max: scale, stacked: true, gap: 3, label: t('history.chart_label') },
+            {
+              height,
+              fill: small ? 10 : Math.round(height * 0.7),
+              max: scale,
+              stacked: true,
+              gap: 3,
+              label: t('history.chart_label'),
+              tip: (index) => this._tip(context, data, index, labels, colors),
+            },
           )}
           ${
-            average === undefined
+            average === undefined || small
               ? nothing
               : html`<div class="avg" style="top:${((1 - average / scale) * height).toFixed(1)}px">
                   <span
@@ -318,19 +332,70 @@ export class MetronHistoryCard extends MetronCard<HistoryCardConfig, HistoryData
                 </div>`
           }
         </div>
-        ${axis(ticks)}
+        ${small ? nothing : axis(ticks)}
       </div>
-      <div class="dot-legend" style="justify-content:flex-start;gap:18px">
-        ${parts.map((values, index) => {
-          const part = total(values) ?? 0;
-          const share = sum ? (part / sum) * 100 : 0;
-
-          return html`<span
-            ><i style="background:${colors[index]};border-radius:2px"></i>${labels[index]}
-            <b>${formatNumber(share, 0, locale)} %</b></span
-          >`;
-        })}
-      </div>
+      ${small ? nothing : this._renderLegend(context, data, parts, labels, colors)}
     `;
+  }
+
+  private _renderLegend(
+    context: Context,
+    data: HistoryData,
+    parts: readonly Series[],
+    labels: readonly string[],
+    colors: readonly string[],
+  ): TemplateResult {
+    const { locale } = context;
+    const sum = total(data.totals);
+
+    return html`<div class="dot-legend" style="justify-content:flex-start;gap:18px">
+      ${parts.map((values, index) => {
+        const part = total(values) ?? 0;
+        const share = sum ? (part / sum) * 100 : 0;
+
+        return html`<span
+          ><i style="background:${colors[index]};border-radius:2px"></i>${labels[index]}
+          <b>${formatNumber(share, 0, locale)} %</b></span
+        >`;
+      })}
+    </div>`;
+  }
+
+  private _tip(
+    context: Context,
+    data: HistoryData,
+    index: number,
+    labels: readonly string[],
+    colors: readonly string[],
+  ): Tip | undefined {
+    const { locale, t } = context;
+    const parts = [data.split.solar, data.split.battery, data.split.grid];
+    const totalValue = data.totals[index];
+
+    if (totalValue === undefined) return undefined;
+
+    return {
+      title: formatDate(addDays(data.start, index), locale, {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      }),
+      rows: [
+        ...parts.flatMap((values, part) => {
+          const value = values[index];
+
+          return value === undefined || value <= 0
+            ? []
+            : [
+                {
+                  label: labels[part] ?? '',
+                  value: tipValue(formatEnergy(value, locale)),
+                  color: colors[part],
+                },
+              ];
+        }),
+        { label: t('history.total'), value: tipValue(formatEnergy(totalValue, locale)) },
+      ],
+    };
   }
 }

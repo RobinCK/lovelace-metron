@@ -3,6 +3,7 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { SizeSetting } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import { formatDate, formatMoney, formatMonth, formatNumber, unitText } from '../../core/format';
@@ -209,6 +210,10 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
     return 4 + config.stages.length;
   }
 
+  protected override defaultSize(config: LossesCardConfig): SizeSetting {
+    return config.stages.length <= 3 ? 'medium' : 'large';
+  }
+
   protected override refreshInterval(): number {
     return HOUR / 4;
   }
@@ -252,7 +257,7 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, hass, t, locale, now } = context;
+    const { config, data, hass, size, t, locale, now } = context;
     const title = config.title ?? t('losses.title', { month: formatMonth(now, locale, true) });
 
     if (!data)
@@ -331,12 +336,12 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
             </div>`
           : nothing
       }
-      <div class="rows stages">
+      <div class="rows stages" style=${size === 'small' ? 'display:none' : ''}>
         ${data.stages.map((item, index) => {
           const color = item.stage.color ?? SHADES[index % SHADES.length] ?? 'var(--m-warn)';
           const stageEfficiency = item.input > 0 ? item.output / item.input : undefined;
 
-          return html`<div class="row">
+          return html`<div class="row" data-drop=${data.stages.length - index + 1}>
             <div class="stage" style="--c:${color}">
               <span><i></i>${item.stage.name}</span>
               <small
@@ -360,7 +365,7 @@ export class MetronLossesCard extends MetronCard<LossesCardConfig, LossesData> {
       </div>
       ${
         largest && largest.loss > 0
-          ? html`<div class="panels">
+          ? html`<div class="panels" data-drop="1" style=${size === 'small' ? 'display:none' : ''}>
               <div class="panel">
                 <span class="label">${t('losses.per_year', { name: largest.stage.name })}</span>
                 <span

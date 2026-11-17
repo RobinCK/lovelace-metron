@@ -1,8 +1,9 @@
-import { css, html } from 'lit';
+import { css, html, nothing } from 'lit';
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import { DAY } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
+import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { formatEnergy, formatMonth, unitText } from '../../core/format';
 import { niceMax } from '../../core/math';
@@ -14,6 +15,8 @@ import type { ConfigForm } from '../../ui/form';
 import { header, legend, meta, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
+import { tipValue } from '../../ui/tip';
+import type { Tip } from '../../ui/tip';
 import {
   energyFields,
   energySeries,
@@ -62,6 +65,8 @@ const netSeries = (series: EnergySeries): Series => {
 };
 
 export class MetronYearCard extends MetronCard<YearCardConfig, YearData> {
+  static override maxSize: CardSize = 'medium';
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
@@ -134,7 +139,8 @@ export class MetronYearCard extends MetronCard<YearCardConfig, YearData> {
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, t, locale } = context;
+    const { config, data, size, t, locale } = context;
+    const small = size === 'small';
 
     if (data?.empty) return html`<div class="empty">${t('energy.no_sources')}</div>`;
     if (!data)
@@ -151,29 +157,54 @@ export class MetronYearCard extends MetronCard<YearCardConfig, YearData> {
     const netMax = niceMax(Math.max(1, ...data.net.map((value) => Math.abs(value ?? 0))));
     const range = `${formatMonth(first, locale)} ${new Date(first).getFullYear()} – ${formatMonth(lastStart, locale)} ${new Date(lastStart).getFullYear()} · ${unitText('kWh', locale)}`;
 
+    const tip = (index: number): Tip | undefined => this._tip(context, data, index);
+
     return html`
       ${header(config.title ?? t('year.title'), meta(range))}
-      ${legend([
-        { label: t('year.generation'), color: 'var(--m-solar)' },
-        { label: t('year.consumption'), color: 'var(--m-home)' },
-        { label: t('year.net_out'), color: 'var(--m-ok)' },
-        { label: t('year.net_in'), color: 'var(--m-grid)' },
-      ])}
-      <div class="section" style="gap:4px">
+      ${
+        small
+          ? nothing
+          : legend([
+              { label: t('year.generation'), color: 'var(--m-solar)' },
+              { label: t('year.consumption'), color: 'var(--m-home)' },
+              { label: t('year.net_out'), color: 'var(--m-ok)' },
+              { label: t('year.net_in'), color: 'var(--m-grid)' },
+            ])
+      }
+      <div class="section shrink" style="gap:4px">
         ${barChart(
           [
             { values: data.series.solar, color: 'var(--m-solar)', opacity },
             { values: data.series.home, color: 'var(--m-home)', opacity },
           ],
-          { height: config.height, max, gap: 3, radius: 1, label: t('year.chart_label') },
+          {
+            height: small ? 80 : size === 'medium' ? 112 : config.height,
+            fill: small ? 60 : 80,
+            max,
+            gap: 3,
+            radius: 1,
+            label: t('year.chart_label'),
+            tip,
+          },
         )}
-        <div class="net">
-          ${mirrorChart(
-            data.net.map((value) => (value === undefined ? undefined : Math.max(0, value))),
-            data.net.map((value) => (value === undefined ? undefined : Math.max(0, -value))),
-            { height: 60, max: netMax, upColor: 'var(--m-ok)', downColor: 'var(--m-grid)', gap: 4 },
-          )}
-        </div>
+        ${
+          small
+            ? nothing
+            : html`<div class="net">
+                ${mirrorChart(
+                  data.net.map((value) => (value === undefined ? undefined : Math.max(0, value))),
+                  data.net.map((value) => (value === undefined ? undefined : Math.max(0, -value))),
+                  {
+                    height: size === 'medium' ? 52 : 60,
+                    max: netMax,
+                    upColor: 'var(--m-ok)',
+                    downColor: 'var(--m-grid)',
+                    gap: 4,
+                    tip,
+                  },
+                )}
+              </div>`
+        }
         <div class="months" style="--count:${data.starts.length}">
           ${data.starts.map(
             (start, index) =>
@@ -183,8 +214,43 @@ export class MetronYearCard extends MetronCard<YearCardConfig, YearData> {
           )}
         </div>
       </div>
-      ${stats(this._totals(context, data))}
+      ${small ? nothing : stats(this._totals(context, data))}
     `;
+  }
+
+  private _tip(context: Context, data: YearData, index: number): Tip | undefined {
+    const { locale, t } = context;
+    const start = data.starts[index];
+
+    if (start === undefined) return undefined;
+
+    const rows = [
+      { label: t('year.generation'), value: data.series.solar[index], color: 'var(--m-solar)' },
+      { label: t('year.consumption'), value: data.series.home[index], color: 'var(--m-home)' },
+    ].flatMap((row) =>
+      row.value === undefined
+        ? []
+        : [
+            {
+              label: row.label,
+              value: tipValue(formatEnergy(row.value, locale)),
+              color: row.color,
+            },
+          ],
+    );
+    const net = data.net[index];
+
+    if (net !== undefined) {
+      rows.push({
+        label: net >= 0 ? t('year.net_out') : t('year.net_in'),
+        value: tipValue(formatEnergy(Math.abs(net), locale)),
+        color: net >= 0 ? 'var(--m-ok)' : 'var(--m-grid)',
+      });
+    }
+
+    return rows.length === 0
+      ? undefined
+      : { title: `${formatMonth(start, locale, true)} ${new Date(start).getFullYear()}`, rows };
   }
 
   private _totals(context: Context, data: YearData): StatItem[] {

@@ -1,6 +1,8 @@
 import { html, nothing, svg } from 'lit';
 import type { SVGTemplateResult, TemplateResult } from 'lit';
 import { niceMax } from '../core/math';
+import { slotHover } from './tip';
+import type { SlotTip } from './tip';
 
 const SLOT = 10;
 
@@ -10,14 +12,41 @@ export interface BarSeries {
   readonly opacity?: number | ((index: number) => number);
 }
 
-export interface BarChartOptions {
+export interface ChartFrame {
   readonly height: number;
+  readonly fill?: number;
+  readonly tip?: SlotTip;
+  readonly label?: string;
+}
+
+export interface BarChartOptions extends ChartFrame {
   readonly max?: number;
   readonly gap?: number;
   readonly stacked?: boolean;
   readonly radius?: number;
-  readonly label?: string;
 }
+
+export const chartFrame = (
+  frame: ChartFrame,
+  count: number,
+  body: TemplateResult | SVGTemplateResult,
+): TemplateResult => {
+  const hover = frame.tip ? slotHover(count, frame.tip) : undefined;
+  const fill = frame.fill !== undefined;
+  const classes = ['chart', fill ? 'fill' : '', hover ? 'hoverable' : ''].filter(Boolean).join(' ');
+
+  return html`<div
+    class=${classes}
+    style=${fill ? `height:${frame.height}px;--fill-min:${frame.fill ?? 0}px` : ''}
+    role="img"
+    aria-label=${frame.label ?? nothing}
+    @pointermove=${hover?.move}
+    @pointerdown=${hover?.move}
+    @pointerleave=${hover?.leave}
+  >
+    ${body}
+  </div>`;
+};
 
 const resolve = <T>(value: T | ((index: number) => T), index: number): T =>
   typeof value === 'function' ? (value as (index: number) => T)(index) : value;
@@ -71,25 +100,25 @@ export const barChart = (
     });
   }
 
-  return html`<div class="chart" role="img" aria-label=${options.label ?? nothing}>
-    <svg
+  return chartFrame(
+    options,
+    count,
+    html`<svg
       viewBox="0 0 ${Math.max(width, 1)} ${height}"
       height=${height}
       preserveAspectRatio="none"
       aria-hidden="true"
     >
       ${bars}
-    </svg>
-  </div>`;
+    </svg>`,
+  );
 };
 
-export interface MirrorOptions {
-  readonly height: number;
+export interface MirrorOptions extends ChartFrame {
   readonly max?: number;
   readonly gap?: number;
   readonly upColor: string | ((index: number) => string);
   readonly downColor: string | ((index: number) => string);
-  readonly label?: string;
 }
 
 export const mirrorChart = (
@@ -127,8 +156,10 @@ export const mirrorChart = (
     }
   }
 
-  return html`<div class="chart" role="img" aria-label=${options.label ?? nothing}>
-    <svg
+  return chartFrame(
+    options,
+    count,
+    html`<svg
       viewBox="0 0 ${Math.max(count * SLOT, 1)} ${options.height}"
       height=${options.height}
       preserveAspectRatio="none"
@@ -143,21 +174,9 @@ export const mirrorChart = (
         vector-effect="non-scaling-stroke"
       ></line>
       ${bars}
-    </svg>
-  </div>`;
+    </svg>`,
+  );
 };
-
-export const sparkBars = (
-  values: readonly (number | undefined)[],
-  color: string | ((index: number) => string),
-  height = 22,
-): TemplateResult =>
-  barChart([{ values, color }], {
-    height,
-    gap: 3,
-    radius: 0.8,
-    max: niceMax(Math.max(0, ...values.map((v) => v ?? 0))),
-  });
 
 export const ring = (
   fraction: number | undefined,
