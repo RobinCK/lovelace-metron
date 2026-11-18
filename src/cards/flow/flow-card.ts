@@ -30,7 +30,7 @@ import type { Tip } from '../../ui/tip';
 import { computeAutonomy, computeFlows, deriveHome } from './flows';
 import type { Flow, FlowNode, PowerBalance } from './flows';
 import { layoutWithLabels, ribbonPath, spread } from './sankey';
-import type { NodeBox, Ribbon } from './sankey';
+import type { NodeBox, Ribbon, SankeyLayout } from './sankey';
 
 export interface FlowCardConfig extends BaseConfig {
   readonly solar?: string;
@@ -79,7 +79,27 @@ const SUN = 'sun.sun';
 const percent = (value: number, total: number): string =>
   `${total > 0 ? ((value / total) * 100).toFixed(2) : 0}%`;
 const LABEL_SIZE = 66;
+const LABEL_GAP = 10;
 const LINE_SIZE = 16;
+
+type Detail = 'full' | 'notes' | 'none';
+
+const DETAILS: readonly Detail[] = ['full', 'notes', 'none'];
+
+const NEAR = 8;
+
+interface Arrangement {
+  readonly layout: SankeyLayout;
+  readonly left: Detail;
+  readonly right: Detail;
+  readonly leftCenters: readonly number[];
+  readonly rightCenters: readonly number[];
+}
+
+interface LabelHeight {
+  readonly base: number;
+  readonly detail?: number;
+}
 const OTHER_MIN = 20;
 const SEGMENTS = 10;
 
@@ -159,11 +179,30 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
         min-width: 0;
       }
 
+      ha-card {
+        container-type: inline-size;
+      }
+
       .sankey {
         flex: 0 1 auto;
         display: grid;
         grid-template-columns: minmax(80px, 112px) minmax(64px, 1fr) minmax(104px, 148px);
         column-gap: 10px;
+      }
+
+      @container (max-width: 440px) {
+        .sankey {
+          grid-template-columns: minmax(0, 30%) minmax(0, 1fr) minmax(0, 30%);
+          column-gap: 8px;
+        }
+
+        .node-value b {
+          font-size: 17px;
+        }
+
+        .left .node-value b {
+          font-size: 19px;
+        }
       }
 
       .side {
@@ -618,23 +657,13 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     const sources = new Set(flows.map((flow) => flow.from)).size;
     const sinks = new Set(flows.map((flow) => flow.to)).size;
     const height = fixed ?? Math.min(config.height, 40 + LABEL_SIZE * Math.max(sources, sinks));
-    const layout = layoutWithLabels(
-      flows,
-      height,
-      10,
-      (node) => this._labelSize(config, node.id, 'left'),
-      (node) => this._labelSize(config, node.id, 'right'),
-    );
-    const leftCenters = spread(
-      layout.left.map((node) => node.y + node.h / 2),
-      layout.left.map((node) => this._labelSize(config, node.id, 'left')),
-      height,
-    );
-    const rightCenters = spread(
-      layout.right.map((node) => node.y + node.h / 2),
-      layout.right.map((node) => this._labelSize(config, node.id, 'right')),
-      height,
-    );
+    const {
+      layout,
+      left: leftDetail,
+      right: rightDetail,
+      leftCenters,
+      rightCenters,
+    } = this._arrange(config, flows, height);
     const sinkTotal = layout.right.reduce((total, node) => total + node.value, 0);
     const pairs = [...new Set(layout.ribbons.map((ribbon) => `${ribbon.from}-${ribbon.to}`))];
 
@@ -645,7 +674,13 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     >
       <div class="side left">
         ${layout.left.map((node, index) =>
-          this._renderSource(context, reading, node, percent(leftCenters[index] ?? 0, height)),
+          this._renderSource(
+            context,
+            reading,
+            node,
+            percent(leftCenters[index] ?? 0, height),
+            leftDetail,
+          ),
         )}
       </div>
       <div class="mid">
@@ -679,18 +714,137 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
             node,
             percent(rightCenters[index] ?? 0, height),
             sinkTotal,
+            rightDetail,
           ),
         )}
       </div>
     </div>`;
   }
 
-  private _labelSize(config: FlowCardConfig, node: FlowNode, side: 'left' | 'right'): number {
-    if (side === 'left' && node === 'solar' && config.solar_strings.length > 0) {
-      return LABEL_SIZE + (config.solar_strings.length - 1) * LINE_SIZE;
+  private readonly _labelHeights = new Map<string, LabelHeight>();
+
+  protected override updated(): void {
+    super.updated();
+    this._measureLabels();
+  }
+
+  private _measureLabels(): void {
+    let changed = false;
+
+    this.renderRoot.querySelectorAll<HTMLElement>('[data-label]').forEach((label) => {
+      const key = label.dataset.label;
+
+      if (!key || label.offsetHeight === 0) return;
+
+      const detail = label.querySelector<HTMLElement>('[data-detail]');
+      const gap = parseFloat(getComputedStyle(label).rowGap) || 0;
+      const previous = this._labelHeights.get(key);
+      const detailHeight = detail ? detail.offsetHeight + gap : previous?.detail;
+      const base = label.offsetHeight - (detail ? (detailHeight ?? 0) : 0);
+
+      if (
+        previous &&
+        Math.abs(previous.base - base) < 2 &&
+        Math.abs((previous.detail ?? 0) - (detailHeight ?? 0)) < 2
+      ) {
+        return;
+      }
+
+      this._labelHeights.set(key, { base, detail: detailHeight });
+      changed = true;
+    });
+
+    if (changed) this.requestUpdate();
+  }
+
+  private _labelSize(
+    config: FlowCardConfig,
+    node: FlowNode,
+    side: 'left' | 'right',
+    detail: Detail,
+  ): number {
+    const strings = side === 'left' && node === 'solar' ? config.solar_strings.length : 0;
+    const measured = this._labelHeights.get(`${side}:${node}`);
+    const lines = side === 'left' && node === 'solar' ? strings : 1;
+    const extra = measured?.detail ?? lines * LINE_SIZE;
+    const base = measured?.base ?? LABEL_SIZE - LABEL_GAP - LINE_SIZE;
+    const shown = detail === 'full' || (detail === 'notes' && strings === 0) ? extra : 0;
+
+    return base + shown + LABEL_GAP;
+  }
+
+  private _arrange(config: FlowCardConfig, flows: readonly Flow[], height: number): Arrangement {
+    const place = (left: Detail, right: Detail): Arrangement => {
+      const leftSize = (node: NodeBox): number => this._labelSize(config, node.id, 'left', left);
+      const rightSize = (node: NodeBox): number => this._labelSize(config, node.id, 'right', right);
+      const layout = layoutWithLabels(flows, height, 10, leftSize, rightSize);
+
+      return {
+        layout,
+        left,
+        right,
+        leftCenters: spread(
+          layout.left.map((node) => node.y + node.h / 2),
+          layout.left.map(leftSize),
+          height,
+        ),
+        rightCenters: spread(
+          layout.right.map((node) => node.y + node.h / 2),
+          layout.right.map(rightSize),
+          height,
+        ),
+      };
+    };
+
+    const beside = (
+      nodes: readonly NodeBox[],
+      centers: readonly number[],
+      side: 'left' | 'right',
+      detail: Detail,
+    ): boolean => {
+      const sizes = nodes.map((node) => this._labelSize(config, node.id, side, detail));
+
+      if (sizes.reduce((sum, size) => sum + size, 0) > height) return false;
+
+      return nodes.every((node, index) => {
+        const half = ((sizes[index] ?? 0) - LABEL_GAP) / 2;
+        const center = centers[index] ?? 0;
+
+        return center - half <= node.y + node.h + NEAR && center + half >= node.y - NEAR;
+      });
+    };
+
+    const last = DETAILS.length - 1;
+    let left = 0;
+    let right = 0;
+    let arrangement = place('full', 'full');
+
+    for (let step = 0; step < DETAILS.length * 2; step++) {
+      const nextLeft = beside(
+        arrangement.layout.left,
+        arrangement.leftCenters,
+        'left',
+        arrangement.left,
+      )
+        ? left
+        : Math.min(left + 1, last);
+      const nextRight = beside(
+        arrangement.layout.right,
+        arrangement.rightCenters,
+        'right',
+        arrangement.right,
+      )
+        ? right
+        : Math.min(right + 1, last);
+
+      if (nextLeft === left && nextRight === right) break;
+
+      left = nextLeft;
+      right = nextRight;
+      arrangement = place(DETAILS[left] ?? 'none', DETAILS[right] ?? 'none');
     }
 
-    return LABEL_SIZE;
+    return arrangement;
   }
 
   private _lossParts(
@@ -747,52 +901,81 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     ></i>`;
   }
 
-  private _renderSource(
+  private _strings(context: Context): { readonly name: string; readonly value: string }[] {
+    const { config, hass, locale } = context;
+
+    return config.solar_strings.map((item, index) => {
+      const watts = readNumber(hass, item.entity, 'power');
+
+      return {
+        name: item.name ?? `PV${index + 1}`,
+        value: formatNumber(watts === undefined ? undefined : watts / 1000, 2, locale),
+      };
+    });
+  }
+
+  private _sourceSub(
     context: Context,
     reading: Reading,
-    node: NodeBox,
-    center: string,
-  ): TemplateResult {
-    const { config, hass, t, locale, moreInfo } = context;
-    const power = formatPower(node.value, locale);
-    let sub: TemplateResult | typeof nothing = nothing;
+    node: FlowNode,
+    detail: Detail,
+  ): TemplateResult | typeof nothing {
+    const { t, locale } = context;
 
-    if (node.id === 'solar' && config.solar_strings.length > 0) {
-      sub = html`<div class="strings">
-        ${config.solar_strings.map((item, index) => {
-          const watts = readNumber(hass, item.entity, 'power');
-
-          return html`<span
-            ><em>${item.name ?? `PV${index + 1}`}</em> ${formatNumber(
-              watts === undefined ? undefined : watts / 1000,
-              2,
-              locale,
-            )}</span
-          >`;
-        })}
+    if (node === 'solar' && detail === 'full' && context.config.solar_strings.length > 0) {
+      return html`<div class="strings" data-detail>
+        ${this._strings(context).map((item) => html`<span><em>${item.name}</em> ${item.value}</span>`)}
       </div>`;
     }
 
-    if (node.id === 'battery') {
-      sub = html`<span class="node-sub"
+    if (detail === 'none') return nothing;
+
+    if (node === 'battery') {
+      return html`<span class="node-sub" data-detail
         >${t('flow.discharging')}${
           reading.soc === undefined ? '' : ` · ${formatNumber(reading.soc, 0, locale)} %`
         }</span
       >`;
     }
 
-    if (node.id === 'grid') sub = html`<span class="node-sub">${t('flow.import')}</span>`;
+    if (node === 'grid') return html`<span class="node-sub" data-detail>${t('flow.import')}</span>`;
+
+    return nothing;
+  }
+
+  private _renderSource(
+    context: Context,
+    reading: Reading,
+    node: NodeBox,
+    center: string,
+    detail: Detail,
+  ): TemplateResult {
+    const { config, t, locale, moreInfo } = context;
+    const power = formatPower(node.value, locale);
+    const hidden = node.id === 'solar' && detail !== 'full' && config.solar_strings.length > 0;
+    const hover = hidden
+      ? elementHover(() => ({
+          title: `${t('flow.solar')} · ${tipValue(power)}`,
+          rows: this._strings(context).map((item) => ({ label: item.name, value: item.value })),
+        }))
+      : undefined;
 
     return html`<div
       class="node clickable"
       style="top:${center}"
+      data-label="left:${node.id}"
       @click=${() => {
         moreInfo(this._entityFor(config, node.id));
       }}
+      @pointermove=${hover?.move ?? nothing}
+      @pointerdown=${hover?.move ?? nothing}
+      @pointerleave=${hover?.leave ?? nothing}
     >
-      <span class="node-label" style="color:${COLORS[node.id]}">${t(LABELS[node.id])}</span>
+      <span class="node-label ${hidden ? 'hint' : ''}" style="color:${COLORS[node.id]}"
+        >${t(LABELS[node.id])}</span
+      >
       <span class="node-value"><b>${power.value}</b><small>${power.unit}</small></span>
-      ${sub}
+      ${this._sourceSub(context, reading, node.id, detail)}
     </div>`;
   }
 
@@ -803,6 +986,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     node: NodeBox,
     center: string,
     total: number,
+    detail: Detail,
   ): TemplateResult {
     const { config, t, locale, moreInfo } = context;
     const power = formatPower(node.value, locale);
@@ -813,6 +997,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     return html`<div
       class="node ${node.id === 'loss' ? '' : 'clickable'}"
       style="top:${center}"
+      data-label="right:${node.id}"
       @click=${() => {
         moreInfo(this._entityFor(config, node.id));
       }}
@@ -827,7 +1012,13 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
         <span class="share">${formatNumber(share, 0, locale)} %</span>
       </div>
       <span class="node-value"><b>${power.value}</b><small>${power.unit}</small></span>
-      <span class="node-sub">${this._sinkNote(context, reading, flows, node.id)}</span>
+      ${
+        detail === 'none'
+          ? nothing
+          : html`<span class="node-sub" data-detail
+              >${this._sinkNote(context, reading, flows, node.id)}</span
+            >`
+      }
     </div>`;
   }
 
