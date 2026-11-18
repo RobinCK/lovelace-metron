@@ -132,6 +132,7 @@ export const layoutWithLabels = (
 
     return Math.max(0, size(node) / 2 - (top ? center : height - center));
   };
+
   let layout = layoutSankey(flows, height, gap);
   let top = 0;
   let bottom = 0;
