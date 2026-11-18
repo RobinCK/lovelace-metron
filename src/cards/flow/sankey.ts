@@ -23,7 +23,7 @@ export interface SankeyLayout {
 }
 
 export const LEFT_ORDER: readonly FlowNode[] = ['solar', 'grid', 'battery'];
-export const RIGHT_ORDER: readonly FlowNode[] = ['home', 'battery', 'grid'];
+export const RIGHT_ORDER: readonly FlowNode[] = ['home', 'battery', 'grid', 'loss'];
 
 const total = (flows: readonly Flow[], pick: (flow: Flow) => boolean): number =>
   flows.filter(pick).reduce((sum, flow) => sum + flow.value, 0);

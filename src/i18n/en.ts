@@ -8,6 +8,7 @@ export const EN = {
   'common.no_data': 'No data yet',
   'common.loading': 'Loading…',
   'common.this_week': 'This week',
+  'common.close': 'Close',
   'common.configure': 'Set “{option}” in the card editor',
 
   'unit.h': 'h',
@@ -186,6 +187,7 @@ export const EN = {
   'flow.grid': 'Grid',
   'flow.battery': 'Battery',
   'flow.home': 'Home',
+  'flow.loss': 'Losses',
   'flow.grid_on': 'Grid on',
   'flow.grid_off': 'Outage',
   'flow.charging': 'charging',

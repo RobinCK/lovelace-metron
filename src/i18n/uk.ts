@@ -10,6 +10,7 @@ export const UK: Readonly<Partial<Record<TranslationKey, string>>> = {
   'common.no_data': 'Ще немає даних',
   'common.loading': 'Завантаження…',
   'common.this_week': 'Цей тиждень',
+  'common.close': 'Закрити',
   'common.configure': 'Вкажіть «{option}» у редакторі картки',
 
   'unit.h': 'год',
@@ -188,6 +189,7 @@ export const UK: Readonly<Partial<Record<TranslationKey, string>>> = {
   'flow.grid': 'Мережа',
   'flow.battery': 'АКБ',
   'flow.home': 'Будинок',
+  'flow.loss': 'Втрати',
   'flow.grid_on': 'Мережа є',
   'flow.grid_off': 'Відключення',
   'flow.charging': 'заряд',

@@ -31,6 +31,16 @@ describe('computeFlows', () => {
     ]);
   });
 
+  it('sends what the home sensor does not see to losses', () => {
+    const flows = computeFlows({ solar: 370, grid: 12, battery: 177, home: 278 });
+
+    expect(flows).toEqual([
+      { from: 'solar', to: 'home', value: 278 },
+      { from: 'solar', to: 'loss', value: 92 },
+      { from: 'battery', to: 'loss', value: 177 },
+    ]);
+  });
+
   it('derives the home load from the balance', () => {
     expect(deriveHome(5000, -1000, -1500)).toBe(2500);
     expect(deriveHome(0, -10, 0)).toBe(0);

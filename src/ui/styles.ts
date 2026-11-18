@@ -196,6 +196,16 @@ export const metronStyles = css`
     color: var(--m-muted);
   }
 
+  .stat.clickable:hover .label,
+  .stat.active .label {
+    color: var(--m-text);
+  }
+
+  .stat.active .label {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
   .stat .sub {
     overflow: hidden;
     font-size: 11px;

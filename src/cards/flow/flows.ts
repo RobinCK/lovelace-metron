@@ -1,4 +1,4 @@
-export type FlowNode = 'solar' | 'grid' | 'battery' | 'home';
+export type FlowNode = 'solar' | 'grid' | 'battery' | 'home' | 'loss';
 
 export interface PowerBalance {
   readonly solar: number;
@@ -14,6 +14,8 @@ export interface Flow {
 }
 
 const positive = (value: number): number => Math.max(0, value);
+
+const LOSS_MIN = 20;
 
 export const deriveHome = (solar: number, grid: number, battery: number): number =>
   positive(solar + grid + battery);
@@ -35,6 +37,9 @@ export const computeFlows = (balance: PowerBalance): Flow[] => {
   const solarToGrid = Math.min(solarLeft - solarToBattery, gridOut);
   const gridToBattery = Math.min(gridIn - gridToHome, batteryIn - solarToBattery);
   const batteryToGrid = Math.min(batteryOut - batteryToHome, gridOut - solarToGrid);
+  const solarToLoss = solarLeft - solarToBattery - solarToGrid;
+  const batteryToLoss = batteryOut - batteryToHome - batteryToGrid;
+  const gridToLoss = gridIn - gridToHome - gridToBattery;
 
   const flows: Flow[] = [
     { from: 'solar', to: 'home', value: solarToHome },
@@ -44,9 +49,12 @@ export const computeFlows = (balance: PowerBalance): Flow[] => {
     { from: 'battery', to: 'grid', value: batteryToGrid },
     { from: 'grid', to: 'home', value: gridToHome },
     { from: 'grid', to: 'battery', value: gridToBattery },
+    { from: 'solar', to: 'loss', value: solarToLoss },
+    { from: 'battery', to: 'loss', value: batteryToLoss },
+    { from: 'grid', to: 'loss', value: gridToLoss },
   ];
 
-  return flows.filter((flow) => flow.value > 0.5);
+  return flows.filter((flow) => flow.value > (flow.to === 'loss' ? LOSS_MIN : 0.5));
 };
 
 export interface Autonomy {

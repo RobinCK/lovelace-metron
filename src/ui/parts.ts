@@ -33,10 +33,16 @@ export interface StatItem {
   readonly unit?: string;
   readonly tone?: Tone;
   readonly sub?: string;
+  readonly active?: boolean;
+  readonly onClick?: () => void;
 }
 
 const statTemplate = (item: StatItem): TemplateResult =>
-  html`<div class="stat" style=${item.tone ? `--tone:${toneColor(item.tone)}` : ''}>
+  html`<div
+    class="stat ${item.onClick ? 'clickable' : ''} ${item.active ? 'active' : ''}"
+    style=${item.tone ? `--tone:${toneColor(item.tone)}` : ''}
+    @click=${item.onClick ?? nothing}
+  >
     <span class="label">${item.label}</span>
     <span class="value"
       >${item.value}${item.unit ? html`<small> ${item.unit}</small>` : nothing}</span

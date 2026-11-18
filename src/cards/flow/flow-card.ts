@@ -84,6 +84,7 @@ const COLORS: Readonly<Record<FlowNode, string>> = {
   grid: 'var(--m-grid)',
   battery: 'var(--m-battery)',
   home: 'var(--m-home)',
+  loss: 'var(--m-text-2)',
 };
 
 const LABELS: Readonly<Record<FlowNode, TranslationKey>> = {
@@ -91,6 +92,7 @@ const LABELS: Readonly<Record<FlowNode, TranslationKey>> = {
   grid: 'flow.grid',
   battery: 'flow.battery',
   home: 'flow.home',
+  loss: 'flow.loss',
 };
 
 const SOURCE_SHARE: Readonly<Record<FlowNode, TranslationKey>> = {
@@ -98,6 +100,7 @@ const SOURCE_SHARE: Readonly<Record<FlowNode, TranslationKey>> = {
   grid: 'flow.from_grid',
   battery: 'flow.from_battery',
   home: 'flow.from_solar',
+  loss: 'flow.from_solar',
 };
 
 const signed = (value: number | undefined, invert: boolean): number | undefined => {
@@ -587,6 +590,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     if (node === 'solar') return config.solar;
     if (node === 'grid') return config.grid;
     if (node === 'battery') return config.battery ?? config.battery_soc;
+    if (node === 'loss') return undefined;
 
     return config.home;
   }
@@ -751,7 +755,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     const share = total > 0 ? (node.value / total) * 100 : 0;
 
     return html`<div
-      class="node clickable"
+      class="node ${node.id === 'loss' ? '' : 'clickable'}"
       style="top:${center}"
       @click=${() => {
         moreInfo(this._entityFor(config, node.id));

@@ -159,6 +159,10 @@ Power flows between solar, grid, battery and home as a Sankey diagram. With the 
 battery and grid panels; during an outage it switches to battery autonomy with the time left, the
 shortfall until sunrise and the load that would get you there.
 
+With a `home` sensor, the power the sources deliver beyond what that sensor measures goes to a
+separate Losses node: the inverter's own consumption and conversion losses, and loads the home
+sensor does not see. So a battery that only covers the inverter still shows up in the diagram.
+
 ```yaml
 type: custom:metron-flow-card
 solar: sensor.deye_pv_power
@@ -478,7 +482,9 @@ Without power sensors the profile is built from hourly energy.
 <img src="docs/images/stats.png" width="480" alt="Metrics">
 
 Self-consumption, self-sufficiency and the net grid balance as gauges, with totals and a
-comparison with the same part of the previous period.
+comparison with the same part of the previous period. Tap a gauge or a total to see how it changed
+through the period: by hour for a day, by day for a week or month, by month for a year. Tap it
+again or the × to return to the gauges.
 
 ```yaml
 type: custom:metron-stats-card
