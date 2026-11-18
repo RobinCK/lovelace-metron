@@ -1,6 +1,6 @@
 {
   "name": "lovelace-metron",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Metron: a set of Home Assistant Lovelace cards for home energy, gas, solar and weather data.",
   "type": "module",
   "private": true,

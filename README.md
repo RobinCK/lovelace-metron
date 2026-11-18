@@ -162,8 +162,8 @@ shortfall until sunrise and the load that would get you there.
 With a `home` sensor, the power the sources deliver beyond what that sensor measures goes to a
 separate Losses node: the inverter's own consumption and conversion losses, and loads the home
 sensor does not see. So a battery that only covers the inverter still shows up in the diagram.
-List the parts you can measure in `losses` and the node shows them one by one, with the rest as
-Other.
+List the parts you can measure in `losses` and hovering or tapping the Losses label shows them
+one by one, with the rest as Other.
 
 ```yaml
 type: custom:metron-flow-card

@@ -26,9 +26,10 @@ import { axis, empty, header, icon, pill } from '../../ui/parts';
 import type { Tick } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
 import { elementHover, tipValue } from '../../ui/tip';
+import type { Tip } from '../../ui/tip';
 import { computeAutonomy, computeFlows, deriveHome } from './flows';
 import type { Flow, FlowNode, PowerBalance } from './flows';
-import { layoutSankey, ribbonPath, spread } from './sankey';
+import { layoutWithLabels, ribbonPath, spread } from './sankey';
 import type { NodeBox, Ribbon } from './sankey';
 
 export interface FlowCardConfig extends BaseConfig {
@@ -250,17 +251,10 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
         color: var(--m-muted);
       }
 
-      .parts span {
-        display: flex;
-        gap: 4px;
-        min-width: 0;
-        white-space: nowrap;
-      }
-
-      .parts span em:first-child {
-        flex: 0 1 auto;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      .node-label.hint {
+        cursor: help;
+        text-decoration: underline dotted;
+        text-underline-offset: 3px;
       }
 
       .mid {
@@ -624,7 +618,13 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     const sources = new Set(flows.map((flow) => flow.from)).size;
     const sinks = new Set(flows.map((flow) => flow.to)).size;
     const height = fixed ?? Math.min(config.height, 40 + LABEL_SIZE * Math.max(sources, sinks));
-    const layout = layoutSankey(flows, height, 10);
+    const layout = layoutWithLabels(
+      flows,
+      height,
+      10,
+      (node) => this._labelSize(config, node.id, 'left'),
+      (node) => this._labelSize(config, node.id, 'right'),
+    );
     const leftCenters = spread(
       layout.left.map((node) => node.y + node.h / 2),
       layout.left.map((node) => this._labelSize(config, node.id, 'left')),
@@ -690,10 +690,6 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
       return LABEL_SIZE + (config.solar_strings.length - 1) * LINE_SIZE;
     }
 
-    if (side === 'right' && node === 'loss' && config.losses.length > 0) {
-      return LABEL_SIZE + config.losses.length * LINE_SIZE;
-    }
-
     return LABEL_SIZE;
   }
 
@@ -710,6 +706,18 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     const other = total - known;
 
     return other >= OTHER_MIN ? [...parts, { name: t('flow.other'), value: other }] : parts;
+  }
+
+  private _lossTip(context: Context, total: number): Tip {
+    const { t, locale } = context;
+
+    return {
+      title: `${t('flow.loss')} · ${tipValue(formatPower(total, locale))}`,
+      rows: this._lossParts(context, total).map((part) => ({
+        label: part.name,
+        value: part.value === undefined ? '—' : tipValue(formatPower(part.value, locale)),
+      })),
+    };
   }
 
   private _gradient(pair: string): SVGTemplateResult {
@@ -800,6 +808,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     const power = formatPower(node.value, locale);
     const share = total > 0 ? (node.value / total) * 100 : 0;
     const breakdown = node.id === 'loss' && config.losses.length > 0;
+    const hover = breakdown ? elementHover(() => this._lossTip(context, node.value)) : undefined;
 
     return html`<div
       class="node ${node.id === 'loss' ? '' : 'clickable'}"
@@ -807,25 +816,18 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
       @click=${() => {
         moreInfo(this._entityFor(config, node.id));
       }}
+      @pointermove=${hover?.move ?? nothing}
+      @pointerdown=${hover?.move ?? nothing}
+      @pointerleave=${hover?.leave ?? nothing}
     >
       <div class="node-head">
-        <span class="node-label" style="color:${COLORS[node.id]}">${t(LABELS[node.id])}</span>
+        <span class="node-label ${breakdown ? 'hint' : ''}" style="color:${COLORS[node.id]}"
+          >${t(LABELS[node.id])}</span
+        >
         <span class="share">${formatNumber(share, 0, locale)} %</span>
       </div>
       <span class="node-value"><b>${power.value}</b><small>${power.unit}</small></span>
-      ${
-        breakdown
-          ? html`<div class="strings parts">
-              ${this._lossParts(context, node.value).map((part) => {
-                const value = formatPower(part.value, locale);
-
-                return html`<span title=${part.name}
-                  ><em>${part.name}</em> ${value.value}<em> ${value.unit}</em></span
-                >`;
-              })}
-            </div>`
-          : html`<span class="node-sub">${this._sinkNote(context, reading, flows, node.id)}</span>`
-      }
+      <span class="node-sub">${this._sinkNote(context, reading, flows, node.id)}</span>
     </div>`;
   }
 

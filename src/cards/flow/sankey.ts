@@ -106,6 +106,56 @@ export const layoutSankey = (flows: readonly Flow[], height: number, gap: number
   };
 };
 
+const shift = (layout: SankeyLayout, offset: number): SankeyLayout => ({
+  left: layout.left.map((node) => ({ ...node, y: node.y + offset })),
+  right: layout.right.map((node) => ({ ...node, y: node.y + offset })),
+  ribbons: layout.ribbons.map((ribbon) => ({
+    ...ribbon,
+    y0: ribbon.y0 + offset,
+    y1: ribbon.y1 + offset,
+  })),
+});
+
+export type LabelSize = (node: NodeBox) => number;
+
+export const layoutWithLabels = (
+  flows: readonly Flow[],
+  height: number,
+  gap: number,
+  leftSize: LabelSize,
+  rightSize: LabelSize,
+): SankeyLayout => {
+  const overhang = (node: NodeBox | undefined, size: LabelSize, top: boolean): number => {
+    if (!node) return 0;
+
+    const center = node.y + node.h / 2;
+
+    return Math.max(0, size(node) / 2 - (top ? center : height - center));
+  };
+  let layout = layoutSankey(flows, height, gap);
+  let top = 0;
+  let bottom = 0;
+
+  for (let pass = 0; pass < 3; pass++) {
+    const extraTop = Math.max(
+      overhang(layout.left[0], leftSize, true),
+      overhang(layout.right[0], rightSize, true),
+    );
+    const extraBottom = Math.max(
+      overhang(layout.left[layout.left.length - 1], leftSize, false),
+      overhang(layout.right[layout.right.length - 1], rightSize, false),
+    );
+
+    if (extraTop + extraBottom < 0.5) break;
+
+    top += extraTop;
+    bottom += extraBottom;
+    layout = shift(layoutSankey(flows, Math.max(0, height - top - bottom), gap), top);
+  }
+
+  return layout;
+};
+
 export const ribbonPath = (ribbon: Ribbon, x0: number, x1: number): string => {
   const mid = (x0 + x1) / 2;
   const top0 = ribbon.y0;

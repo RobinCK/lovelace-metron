@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeAutonomy, computeFlows, deriveHome } from '../src/cards/flow/flows';
-import { layoutSankey, spread } from '../src/cards/flow/sankey';
+import { layoutSankey, layoutWithLabels, spread } from '../src/cards/flow/sankey';
 
 describe('computeFlows', () => {
   it('splits solar between home, battery and grid export', () => {
@@ -73,6 +73,24 @@ describe('sankey layout', () => {
       layout.ribbons.reduce((total, ribbon) => total + ribbon.h, 0),
       5,
     );
+  });
+
+  it('leaves room for the labels of thin edge nodes', () => {
+    const flows = computeFlows({ solar: 4060, grid: -2390, battery: -955, home: 268 });
+    const layout = layoutWithLabels(
+      flows,
+      300,
+      10,
+      () => 66,
+      () => 66,
+    );
+    const home = layout.right[0];
+    const loss = layout.right[layout.right.length - 1];
+
+    expect(home?.id).toBe('home');
+    expect(loss?.id).toBe('loss');
+    expect((home?.y ?? 0) + (home?.h ?? 0) / 2).toBeGreaterThanOrEqual(32);
+    expect(300 - (loss?.y ?? 0) - (loss?.h ?? 0) / 2).toBeGreaterThanOrEqual(32);
   });
 
   it('spreads labels without overlap', () => {
