@@ -122,18 +122,26 @@ export const ribbonPath = (ribbon: Ribbon, x0: number, x1: number): string => {
   ].join(' ');
 };
 
-export const spread = (centers: readonly number[], size: number, height: number): number[] => {
+export const spread = (
+  centers: readonly number[],
+  size: number | readonly number[],
+  height: number,
+): number[] => {
   const result = [...centers];
-  const half = size / 2;
+  const half = (index: number): number =>
+    (typeof size === 'number' ? size : (size[index] ?? size[0] ?? 0)) / 2;
 
   for (let index = 0; index < result.length; index++) {
-    const floor = index === 0 ? half : (result[index - 1] ?? 0) + size;
+    const floor = index === 0 ? half(0) : (result[index - 1] ?? 0) + half(index - 1) + half(index);
 
     result[index] = Math.max(result[index] ?? 0, floor);
   }
 
   for (let index = result.length - 1; index >= 0; index--) {
-    const ceiling = index === result.length - 1 ? height - half : (result[index + 1] ?? 0) - size;
+    const ceiling =
+      index === result.length - 1
+        ? height - half(index)
+        : (result[index + 1] ?? 0) - half(index + 1) - half(index);
 
     result[index] = Math.min(result[index] ?? 0, ceiling);
   }

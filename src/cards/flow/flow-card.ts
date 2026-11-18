@@ -38,6 +38,7 @@ export interface FlowCardConfig extends BaseConfig {
   readonly battery?: string;
   readonly battery_soc?: string;
   readonly home?: string;
+  readonly losses: readonly EntityItem[];
   readonly grid_status?: string;
   readonly invert_grid_status: boolean;
   readonly invert_grid: boolean;
@@ -77,6 +78,8 @@ const SUN = 'sun.sun';
 const percent = (value: number, total: number): string =>
   `${total > 0 ? ((value / total) * 100).toFixed(2) : 0}%`;
 const LABEL_SIZE = 66;
+const LINE_SIZE = 16;
+const OTHER_MIN = 20;
 const SEGMENTS = 10;
 
 const COLORS: Readonly<Record<FlowNode, string>> = {
@@ -247,6 +250,19 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
         color: var(--m-muted);
       }
 
+      .parts span {
+        display: flex;
+        gap: 4px;
+        min-width: 0;
+        white-space: nowrap;
+      }
+
+      .parts span em:first-child {
+        flex: 0 1 auto;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
       .mid {
         position: relative;
       }
@@ -394,6 +410,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
       form.expandable(
         'details',
         form.entities('solar_strings', { domain: ['sensor'], deviceClass: ['power'] }),
+        form.entities('losses', { domain: ['sensor'], deviceClass: ['power'] }),
         form.entities('grid_voltages', { domain: ['sensor'], deviceClass: ['voltage'] }),
         form.entity('grid_frequency', { domain: ['sensor'], deviceClass: ['frequency'] }),
         form.grid(
@@ -432,6 +449,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
       battery: cfg.entity(raw, 'battery'),
       battery_soc: cfg.entity(raw, 'battery_soc'),
       home: cfg.entity(raw, 'home'),
+      losses: cfg.entityItems(raw, 'losses'),
       grid_status: cfg.entity(raw, 'grid_status'),
       invert_grid_status: cfg.boolean(raw, 'invert_grid_status', false),
       invert_grid: cfg.boolean(raw, 'invert_grid', false),
@@ -469,6 +487,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
       config.battery_temperature,
       config.grid_frequency,
       ...config.solar_strings.map((item) => item.entity),
+      ...config.losses.map((item) => item.entity),
       ...config.grid_voltages.map((item) => item.entity),
     ];
   }
@@ -608,12 +627,12 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     const layout = layoutSankey(flows, height, 10);
     const leftCenters = spread(
       layout.left.map((node) => node.y + node.h / 2),
-      LABEL_SIZE,
+      layout.left.map((node) => this._labelSize(config, node.id, 'left')),
       height,
     );
     const rightCenters = spread(
       layout.right.map((node) => node.y + node.h / 2),
-      LABEL_SIZE,
+      layout.right.map((node) => this._labelSize(config, node.id, 'right')),
       height,
     );
     const sinkTotal = layout.right.reduce((total, node) => total + node.value, 0);
@@ -664,6 +683,33 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
         )}
       </div>
     </div>`;
+  }
+
+  private _labelSize(config: FlowCardConfig, node: FlowNode, side: 'left' | 'right'): number {
+    if (side === 'left' && node === 'solar' && config.solar_strings.length > 0) {
+      return LABEL_SIZE + (config.solar_strings.length - 1) * LINE_SIZE;
+    }
+
+    if (side === 'right' && node === 'loss' && config.losses.length > 0) {
+      return LABEL_SIZE + config.losses.length * LINE_SIZE;
+    }
+
+    return LABEL_SIZE;
+  }
+
+  private _lossParts(
+    context: Context,
+    total: number,
+  ): { readonly name: string; readonly value?: number }[] {
+    const { config, hass, t } = context;
+    const parts = config.losses.map((item) => ({
+      name: item.name ?? attribute(hass, item.entity, 'friendly_name') ?? item.entity,
+      value: readNumber(hass, item.entity, 'power'),
+    }));
+    const known = parts.reduce((sum, part) => sum + Math.max(0, part.value ?? 0), 0);
+    const other = total - known;
+
+    return other >= OTHER_MIN ? [...parts, { name: t('flow.other'), value: other }] : parts;
   }
 
   private _gradient(pair: string): SVGTemplateResult {
@@ -753,6 +799,7 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     const { config, t, locale, moreInfo } = context;
     const power = formatPower(node.value, locale);
     const share = total > 0 ? (node.value / total) * 100 : 0;
+    const breakdown = node.id === 'loss' && config.losses.length > 0;
 
     return html`<div
       class="node ${node.id === 'loss' ? '' : 'clickable'}"
@@ -766,7 +813,19 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
         <span class="share">${formatNumber(share, 0, locale)} %</span>
       </div>
       <span class="node-value"><b>${power.value}</b><small>${power.unit}</small></span>
-      <span class="node-sub">${this._sinkNote(context, reading, flows, node.id)}</span>
+      ${
+        breakdown
+          ? html`<div class="strings parts">
+              ${this._lossParts(context, node.value).map((part) => {
+                const value = formatPower(part.value, locale);
+
+                return html`<span title=${part.name}
+                  ><em>${part.name}</em> ${value.value}<em> ${value.unit}</em></span
+                >`;
+              })}
+            </div>`
+          : html`<span class="node-sub">${this._sinkNote(context, reading, flows, node.id)}</span>`
+      }
     </div>`;
   }
 

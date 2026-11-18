@@ -162,6 +162,8 @@ shortfall until sunrise and the load that would get you there.
 With a `home` sensor, the power the sources deliver beyond what that sensor measures goes to a
 separate Losses node: the inverter's own consumption and conversion losses, and loads the home
 sensor does not see. So a battery that only covers the inverter still shows up in the diagram.
+List the parts you can measure in `losses` and the node shows them one by one, with the rest as
+Other.
 
 ```yaml
 type: custom:metron-flow-card
@@ -178,6 +180,11 @@ battery_temperature: sensor.deye_battery_temperature
 solar_strings:
   - sensor.deye_pv1_power
   - sensor.deye_pv2_power
+losses:
+  - entity: sensor.inverter_losses
+    name: Inverters
+  - entity: sensor.stabilizer_losses
+    name: Stabilizers
 grid_frequency: sensor.deye_grid_frequency
 grid_voltages:
   - sensor.grid_l1_voltage
@@ -191,6 +198,7 @@ grid_voltages:
 | `grid`                | —         | Grid power, positive = import.                                               |
 | `battery`             | —         | Battery power, positive = discharge.                                         |
 | `home`                | derived   | Home power. Derived from the balance when omitted.                           |
+| `losses`              | —         | Power sensors that make up the Losses node (`entity`, optional `name`).      |
 | `battery_soc`         | —         | Battery state of charge, %.                                                  |
 | `invert_grid`         | `false`   | Flip the grid sign if your sensor reports export as positive.                |
 | `invert_battery`      | `false`   | Flip the battery sign if your sensor reports charge as positive.             |

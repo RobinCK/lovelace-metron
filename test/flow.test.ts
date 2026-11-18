@@ -82,6 +82,14 @@ describe('sankey layout', () => {
     expect((centers[1] ?? 0) - (centers[0] ?? 0)).toBeGreaterThanOrEqual(60);
     expect(centers[2]).toBeLessThanOrEqual(170);
   });
+
+  it('spreads labels of different heights', () => {
+    const centers = spread([20, 60, 190], [60, 60, 120], 260);
+
+    expect((centers[1] ?? 0) - (centers[0] ?? 0)).toBeGreaterThanOrEqual(60);
+    expect((centers[2] ?? 0) - (centers[1] ?? 0)).toBeGreaterThanOrEqual(90);
+    expect(centers[2]).toBeLessThanOrEqual(200);
+  });
 });
 
 import { dipCounts, repeatingWindow, yieldDeviation } from '../src/cards/strings/analysis';
