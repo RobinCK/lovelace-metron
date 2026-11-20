@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeAutonomy, computeFlows, deriveHome } from '../src/cards/flow/flows';
+import { computeAutonomy, computeFlows, computeLoss, deriveHome } from '../src/cards/flow/flows';
 import { layoutSankey, layoutWithLabels, spread } from '../src/cards/flow/sankey';
 
 describe('computeFlows', () => {
@@ -39,6 +39,11 @@ describe('computeFlows', () => {
       { from: 'solar', to: 'loss', value: 92 },
       { from: 'battery', to: 'loss', value: 177 },
     ]);
+  });
+
+  it('counts the loss shares too small to draw', () => {
+    expect(computeLoss({ solar: 370, grid: 12, battery: 177, home: 278 })).toBe(281);
+    expect(computeLoss({ solar: 0, grid: 500, battery: 1500, home: 2000 })).toBe(0);
   });
 
   it('derives the home load from the balance', () => {

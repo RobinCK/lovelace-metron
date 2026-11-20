@@ -27,7 +27,7 @@ import type { Tick } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
 import { elementHover, tipValue } from '../../ui/tip';
 import type { Tip } from '../../ui/tip';
-import { computeAutonomy, computeFlows, deriveHome } from './flows';
+import { computeAutonomy, computeFlows, computeLoss, deriveHome } from './flows';
 import type { Flow, FlowNode, PowerBalance } from './flows';
 import { layoutWithLabels, ribbonPath, spread } from './sankey';
 import type { NodeBox, Ribbon, SankeyLayout } from './sankey';
@@ -989,10 +989,11 @@ export class MetronFlowCard extends MetronCard<FlowCardConfig> {
     detail: Detail,
   ): TemplateResult {
     const { config, t, locale, moreInfo } = context;
-    const power = formatPower(node.value, locale);
+    const value = node.id === 'loss' ? computeLoss(reading.balance) : node.value;
+    const power = formatPower(value, locale);
     const share = total > 0 ? (node.value / total) * 100 : 0;
     const breakdown = node.id === 'loss' && config.losses.length > 0;
-    const hover = breakdown ? elementHover(() => this._lossTip(context, node.value)) : undefined;
+    const hover = breakdown ? elementHover(() => this._lossTip(context, value)) : undefined;
 
     return html`<div
       class="node ${node.id === 'loss' ? '' : 'clickable'}"

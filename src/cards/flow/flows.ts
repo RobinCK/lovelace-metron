@@ -20,6 +20,9 @@ const LOSS_MIN = 20;
 export const deriveHome = (solar: number, grid: number, battery: number): number =>
   positive(solar + grid + battery);
 
+export const computeLoss = (balance: PowerBalance): number =>
+  positive(positive(balance.solar) + balance.grid + balance.battery - positive(balance.home));
+
 export const computeFlows = (balance: PowerBalance): Flow[] => {
   const solar = positive(balance.solar);
   const home = positive(balance.home);
