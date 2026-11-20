@@ -1,18 +1,18 @@
 import { css, html, nothing } from 'lit';
-import type { CSSResultGroup, TemplateResult } from 'lit';
-import { HOUR } from '../../const';
+import type { CSSResultGroup, PropertyDeclarations, TemplateResult } from 'lit';
+import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
 import type { CardSize } from '../../core/size';
 import * as cfg from '../../core/config';
 import { fetchStatistics } from '../../core/data/statistics';
 import { deviceClass } from '../../core/entities';
-import { formatNumber, formatPower, formatWeekday, unitText } from '../../core/format';
+import { formatDate, formatNumber, formatPower, formatWeekday, unitText } from '../../core/format';
 import { addDays, firstWeekday, startOfDay, startOfWeek } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
-import { colorOf, header, stats } from '../../ui/parts';
+import { colorOf, header, navigator, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
 import { elementHover, tipValue } from '../../ui/tip';
@@ -23,6 +23,8 @@ import {
   resolveSources,
 } from '../shared/energy-sources';
 import type { EnergyConfig } from '../shared/energy-sources';
+import { profileWindow } from './window';
+import type { ProfileWindow } from './window';
 
 export interface ProfileCardConfig extends BaseConfig {
   readonly energy: EnergyConfig;
@@ -31,9 +33,11 @@ export interface ProfileCardConfig extends BaseConfig {
   readonly color?: string;
   readonly night_start: number;
   readonly night_end: number;
+  readonly navigation: boolean;
 }
 
 interface ProfileData {
+  readonly start: number;
   readonly grid: readonly (readonly (number | undefined)[])[];
   readonly hourly: readonly { readonly time: number; readonly value: number }[];
   readonly weekStart: number;
@@ -47,9 +51,25 @@ const average = (values: readonly number[]): number | undefined =>
 export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData> {
   static override maxSize: CardSize = 'medium';
 
+  static override properties: PropertyDeclarations = {
+    _offset: { state: true },
+  };
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
+      .head {
+        flex-wrap: wrap;
+        row-gap: 6px;
+      }
+
+      .aside {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-left: auto;
+      }
+
       .scale {
         display: inline-flex;
         align-items: center;
@@ -108,6 +128,13 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
     `,
   ];
 
+  declare _offset: number;
+
+  constructor() {
+    super();
+    this._offset = 0;
+  }
+
   static override configForm(): ConfigForm {
     return form.createForm([
       form.consumptionEntity(),
@@ -116,6 +143,7 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
         form.number('night_start', { min: 0, max: 23, unit: 'h' }),
         form.number('night_end', { min: 0, max: 23, unit: 'h' }),
       ),
+      form.toggle('navigation'),
     ]);
   }
 
@@ -132,6 +160,7 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
       color: cfg.text(raw, 'color'),
       night_start: cfg.number(raw, 'night_start', 1, { min: 0, max: 23 }),
       night_end: cfg.number(raw, 'night_end', 5, { min: 0, max: 23 }),
+      navigation: cfg.boolean(raw, 'navigation', true),
     };
   }
 
@@ -148,8 +177,7 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
     hass: HomeAssistant,
   ): Promise<ProfileData> {
     const now = Date.now();
-    const end = startOfDay(now);
-    const start = addDays(end, -7 * config.weeks);
+    const { start, end } = profileWindow(now, config.weeks, this._offset);
     const hourly = await this._hourly(config, hass, start, end);
     const firstDay = firstWeekday(hass.locale);
     const weekStart = startOfWeek(now, firstDay);
@@ -165,6 +193,7 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
     }
 
     return {
+      start,
       grid: buckets.map((row) => row.map((values) => average(values))),
       hourly,
       weekStart,
@@ -212,9 +241,11 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, size, t, locale } = context;
+    const { config, data, size, t, locale, now } = context;
     const color = colorOf(config.color ?? 'home');
-    const values = (data?.grid ?? [])
+    const window = profileWindow(now, config.weeks, this._offset);
+    const ready = data?.start === window.start;
+    const values = (ready ? data.grid : [])
       .flat()
       .filter((value): value is number => value !== undefined);
     const max = values.length > 0 ? Math.max(...values) : 0;
@@ -223,12 +254,15 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
     return html`
       ${header(
         config.title ?? t('profile.title', { weeks: config.weeks }),
-        html`<span class="scale" style="--c:${color}"
-          >0 <i></i> ${formatNumber(max, 1, locale)} ${unitText('kW', locale)}</span
-        >`,
+        html`<div class="aside">
+          <span class="scale" style="--c:${color}"
+            >0 <i></i> ${formatNumber(max, 1, locale)} ${unitText('kW', locale)}</span
+          >
+          ${config.navigation ? this._renderNavigator(context, window) : nothing}
+        </div>`,
       )}
       ${
-        data
+        ready
           ? html`<div class="section" style="gap:4px">
               <div
                 class="heat ${size === 'medium' ? 'tall' : size === 'small' ? 'short' : ''}"
@@ -278,8 +312,46 @@ export class MetronProfileCard extends MetronCard<ProfileCardConfig, ProfileData
             </div>`
           : html`<div class="empty">${t('common.loading')}</div>`
       }
-      ${data && size !== 'small' ? stats(this._summary(context, data), 1) : nothing}
+      ${ready && size !== 'small' ? stats(this._summary(context, data), 1) : nothing}
     `;
+  }
+
+  private _renderNavigator(context: Context, window: ProfileWindow): TemplateResult {
+    const { t } = context;
+
+    return navigator({
+      label: this._rangeLabel(context, window),
+      previousLabel: t('bars.previous'),
+      nextLabel: t('bars.next'),
+      resetLabel: t('bars.current'),
+      canNext: this._offset < 0,
+      previous: () => {
+        this._shift(-1);
+      },
+      next: () => {
+        this._shift(1);
+      },
+      reset: () => {
+        this._offset = 0;
+        this.reload();
+      },
+    });
+  }
+
+  private _rangeLabel(context: Context, window: ProfileWindow): string {
+    const { locale, now } = context;
+    const last = window.end - DAY;
+    const sameYear = new Date(window.start).getFullYear() === new Date(now).getFullYear();
+    const options: Intl.DateTimeFormatOptions = sameYear
+      ? { day: 'numeric', month: 'short' }
+      : { day: 'numeric', month: 'short', year: 'numeric' };
+
+    return `${formatDate(window.start, locale, options)} – ${formatDate(last, locale, options)}`;
+  }
+
+  private _shift(delta: number): void {
+    this._offset = Math.min(0, this._offset + delta);
+    this.reload();
   }
 
   private _summary(context: Context, data: ProfileData): StatItem[] {

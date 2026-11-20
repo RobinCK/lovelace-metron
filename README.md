@@ -582,7 +582,8 @@ Average power by weekday and hour over the last weeks, the peak, the night base 
 average daily consumption on weekdays and weekends.
 
 Options: `entity` (power sensor or energy counter; home consumption from the energy dashboard
-when omitted), `weeks` (`4`), `color`, `night_start` / `night_end` (`1` / `5`).
+when omitted), `weeks` (`4`), `color`, `night_start` / `night_end` (`1` / `5`), `navigation`
+(`true`, arrows to the previous periods).
 
 ### Solar year — `custom:metron-solar-year-card`
 
@@ -592,7 +593,8 @@ A year of daily solar production as a calendar heatmap with the year total, the 
 average day.
 
 Options: `solar_energy` (solar counter(s); the energy dashboard when omitted), `weeks` (`53`),
-`good_day` (kWh, counts the days above it), `max` (kWh for the full color), `color`.
+`good_day` (kWh, counts the days above it), `max` (kWh for the full color), `color`,
+`navigation` (`true`, arrows to the previous periods).
 
 ### Gas — `custom:metron-gas-card`
 

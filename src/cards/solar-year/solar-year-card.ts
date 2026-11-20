@@ -1,5 +1,5 @@
 import { css, html, nothing } from 'lit';
-import type { CSSResultGroup, TemplateResult } from 'lit';
+import type { CSSResultGroup, PropertyDeclarations, TemplateResult } from 'lit';
 import { DAY, HOUR } from '../../const';
 import { MetronCard } from '../../core/base-card';
 import type { BaseConfig, CardContext, RawConfig } from '../../core/base-card';
@@ -13,11 +13,11 @@ import {
   formatWeekday,
   unitText,
 } from '../../core/format';
-import { addDays, firstWeekday, startOfDay, startOfWeek } from '../../core/time';
+import { addDays, firstWeekday, startOfDay } from '../../core/time';
 import type { HomeAssistant } from '../../types/ha';
 import * as form from '../../ui/form';
 import type { ConfigForm } from '../../ui/form';
-import { colorOf, header, stats } from '../../ui/parts';
+import { colorOf, header, navigator, stats } from '../../ui/parts';
 import type { StatItem } from '../../ui/parts';
 import { metronStyles } from '../../ui/styles';
 import { elementHover, tipValue } from '../../ui/tip';
@@ -29,8 +29,12 @@ import {
   resolveSources,
 } from '../shared/energy-sources';
 import type { EnergyConfig, EnergyKey, Series } from '../shared/energy-sources';
+import { yearWindow } from './window';
+import type { YearWindow } from './window';
 
 const ENERGY: readonly EnergyKey[] = ['solar'];
+
+const RANGE_FORMAT: Intl.DateTimeFormatOptions = { month: 'short', year: 'numeric' };
 
 export interface SolarYearCardConfig extends BaseConfig {
   readonly energy: EnergyConfig;
@@ -38,6 +42,7 @@ export interface SolarYearCardConfig extends BaseConfig {
   readonly good_day?: number;
   readonly max?: number;
   readonly color?: string;
+  readonly navigation: boolean;
 }
 
 interface YearData {
@@ -50,9 +55,18 @@ type Context = CardContext<SolarYearCardConfig, YearData>;
 export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearData> {
   static override maxSize: CardSize = 'medium';
 
+  static override properties: PropertyDeclarations = {
+    _offset: { state: true },
+  };
+
   static override styles: CSSResultGroup = [
     metronStyles,
     css`
+      .head {
+        flex-wrap: wrap;
+        row-gap: 6px;
+      }
+
       .year {
         display: grid;
         grid-template-columns: 20px minmax(0, 1fr);
@@ -111,6 +125,13 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
     `,
   ];
 
+  declare _offset: number;
+
+  constructor() {
+    super();
+    this._offset = 0;
+  }
+
   static override configForm(): ConfigForm {
     return form.createForm([
       ...energyFields(ENERGY),
@@ -119,6 +140,7 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
         form.number('good_day', { min: 0, step: 0.1, unit: 'kWh' }),
         form.number('max', { min: 0, step: 0.1, unit: 'kWh' }),
       ),
+      form.toggle('navigation'),
     ]);
   }
 
@@ -134,6 +156,7 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
       good_day: cfg.optionalNumber(raw, 'good_day'),
       max: cfg.optionalNumber(raw, 'max'),
       color: cfg.text(raw, 'color'),
+      navigation: cfg.boolean(raw, 'navigation', true),
     };
   }
 
@@ -150,8 +173,7 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
     hass: HomeAssistant,
   ): Promise<YearData> {
     const now = Date.now();
-    const start = addDays(startOfWeek(now, firstWeekday(hass.locale)), -7 * (config.weeks - 1));
-    const end = addDays(startOfDay(now), 1);
+    const { start, end } = yearWindow(now, config.weeks, firstWeekday(hass.locale), this._offset);
     const starts = Array.from({ length: Math.round((end - start) / DAY) }, (_, index) =>
       addDays(start, index),
     );
@@ -163,11 +185,16 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
   }
 
   protected renderBody(context: Context): TemplateResult {
-    const { config, data, size, t, locale, now } = context;
+    const { config, data, hass, size, t, locale, now } = context;
     const color = colorOf(config.color ?? 'solar');
+    const window = yearWindow(now, config.weeks, firstWeekday(hass.locale), this._offset);
+    const head = header(
+      config.title ?? t('solar_year.title'),
+      config.navigation ? this._renderNavigator(context, window) : nothing,
+    );
 
-    if (!data) {
-      return html`${header(config.title ?? t('solar_year.title'))}
+    if (data?.start !== window.start) {
+      return html`${head}
         <div class="empty">${t('common.loading')}</div>`;
     }
 
@@ -182,7 +209,7 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
     }));
 
     return html`
-      ${header(config.title ?? t('solar_year.title'))}
+      ${head}
       <div class="year">
         <span></span>
         <div class="months" style="--weeks:${weeks}">
@@ -239,6 +266,33 @@ export class MetronSolarYearCard extends MetronCard<SolarYearCardConfig, YearDat
       </div>
       ${size === 'small' ? nothing : stats(this._summary(context, data, known))}
     `;
+  }
+
+  private _renderNavigator(context: Context, window: YearWindow): TemplateResult {
+    const { t, locale } = context;
+
+    return navigator({
+      label: `${formatDate(window.start, locale, RANGE_FORMAT)} – ${formatDate(window.end - DAY, locale, RANGE_FORMAT)}`,
+      previousLabel: t('bars.previous'),
+      nextLabel: t('bars.next'),
+      resetLabel: t('bars.current'),
+      canNext: this._offset < 0,
+      previous: () => {
+        this._shift(-1);
+      },
+      next: () => {
+        this._shift(1);
+      },
+      reset: () => {
+        this._offset = 0;
+        this.reload();
+      },
+    });
+  }
+
+  private _shift(delta: number): void {
+    this._offset = Math.min(0, this._offset + delta);
+    this.reload();
   }
 
   private _summary(context: Context, data: YearData, known: readonly number[]): StatItem[] {
