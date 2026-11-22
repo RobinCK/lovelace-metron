@@ -80,12 +80,29 @@ describe('energy dashboard preferences', () => {
 
     expect(mapped).toEqual({
       solar: ['sensor.pv'],
+      home: [],
       import: ['sensor.in'],
       export: ['sensor.out'],
       discharge: ['sensor.bat_out'],
       charge: ['sensor.bat_in'],
       gas: ['sensor.gas'],
     });
+  });
+});
+
+describe('energy dashboard preferences since 2026.11', () => {
+  it('reads the flat grid source and the home meter', () => {
+    const mapped = preferenceSources({
+      energy_sources: [
+        { type: 'grid', stat_energy_from: 'sensor.in', stat_energy_to: 'sensor.out' },
+        { type: 'home', stat_energy_to: 'sensor.house' },
+        { type: 'solar', stat_energy_from: 'sensor.pv' },
+      ],
+    });
+
+    expect(mapped.import).toEqual(['sensor.in']);
+    expect(mapped.export).toEqual(['sensor.out']);
+    expect(mapped.home).toEqual(['sensor.house']);
   });
 });
 

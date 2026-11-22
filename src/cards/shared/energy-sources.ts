@@ -120,11 +120,18 @@ export const preferenceSources = (
 
   return {
     solar: present(ofType('solar').map((source) => source.stat_energy_from)),
+    home: present(ofType('home').map((source) => source.stat_energy_to)),
     import: present(
-      grid.flatMap((source) => (source.flow_from ?? []).map((flow) => flow.stat_energy_from)),
+      grid.flatMap((source) => [
+        source.stat_energy_from,
+        ...(source.flow_from ?? []).map((flow) => flow.stat_energy_from),
+      ]),
     ),
     export: present(
-      grid.flatMap((source) => (source.flow_to ?? []).map((flow) => flow.stat_energy_to)),
+      grid.flatMap((source) => [
+        source.stat_energy_to,
+        ...(source.flow_to ?? []).map((flow) => flow.stat_energy_to),
+      ]),
     ),
     discharge: present(battery.map((source) => source.stat_energy_from)),
     charge: present(battery.map((source) => source.stat_energy_to)),
@@ -142,7 +149,7 @@ export const resolveSources = async (
   const fallback =
     config.energy_dashboard && missing ? preferenceSources(await fetchEnergyPreferences(hass)) : {};
   const pick = (key: EnergyKey): readonly string[] =>
-    keys.includes(key) ? (explicit[key] ?? (key === 'home' ? [] : fallback[key]) ?? []) : [];
+    keys.includes(key) ? (explicit[key] ?? fallback[key] ?? []) : [];
 
   return {
     solar: pick('solar'),

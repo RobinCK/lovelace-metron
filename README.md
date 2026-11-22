@@ -442,15 +442,15 @@ one entity or a list. Anything you leave out is taken from the Home Assistant **
 (`energy_dashboard: false` turns this off), so with a configured energy dashboard these cards work
 without any options.
 
-| Option                     | Description                                                       |
-| -------------------------- | ----------------------------------------------------------------- |
-| `solar_energy`             | Solar production counter(s).                                      |
-| `home_energy`              | Home consumption counter(s). Derived from the balance if omitted. |
-| `grid_import_energy`       | Energy taken from the grid.                                       |
-| `grid_export_energy`       | Energy sent to the grid.                                          |
-| `battery_charge_energy`    | Energy into the battery.                                          |
-| `battery_discharge_energy` | Energy out of the battery.                                        |
-| `energy_dashboard`         | Fill missing sources from the energy dashboard. Default `true`.   |
+| Option                     | Description                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| `solar_energy`             | Solar production counter(s).                                                                 |
+| `home_energy`              | Home consumption counter(s). The energy dashboard home meter, else derived from the balance. |
+| `grid_import_energy`       | Energy taken from the grid.                                                                  |
+| `grid_export_energy`       | Energy sent to the grid.                                                                     |
+| `battery_charge_energy`    | Energy into the battery.                                                                     |
+| `battery_discharge_energy` | Energy out of the battery.                                                                   |
+| `energy_dashboard`         | Fill missing sources from the energy dashboard. Default `true`.                              |
 
 Counters can be daily meters or lifetime totals. The ongoing hour is added from the live state.
 
