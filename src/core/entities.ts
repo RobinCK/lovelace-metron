@@ -87,6 +87,16 @@ export const entityName = (hass: HomeAssistant, entityId: string | undefined): s
   return typeof name === 'string' ? name : (entityId ?? '');
 };
 
+export const areaName = (hass: HomeAssistant, entityId: string | undefined): string | undefined => {
+  if (!entityId) return undefined;
+
+  const entry = hass.entities?.[entityId];
+  const areaId =
+    entry?.area_id ?? (entry?.device_id ? hass.devices?.[entry.device_id]?.area_id : null);
+
+  return areaId ? hass.areas?.[areaId]?.name : undefined;
+};
+
 export const attribute = <T>(
   hass: HomeAssistant,
   entityId: string | undefined,

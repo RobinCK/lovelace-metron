@@ -52,6 +52,22 @@ export interface HassConnection {
   ): Promise<Unsubscribe>;
 }
 
+export interface HassEntityEntry {
+  readonly entity_id: string;
+  readonly device_id?: string | null;
+  readonly area_id?: string | null;
+}
+
+export interface HassDeviceEntry {
+  readonly id: string;
+  readonly area_id?: string | null;
+}
+
+export interface HassAreaEntry {
+  readonly area_id: string;
+  readonly name: string;
+}
+
 export interface HomeAssistant {
   readonly states: HassEntities;
   readonly locale: HassLocale;
@@ -59,6 +75,9 @@ export interface HomeAssistant {
   readonly themes?: HassThemes;
   readonly config?: HassConfig;
   readonly connection?: HassConnection;
+  readonly entities?: Readonly<Record<string, HassEntityEntry | undefined>>;
+  readonly devices?: Readonly<Record<string, HassDeviceEntry | undefined>>;
+  readonly areas?: Readonly<Record<string, HassAreaEntry | undefined>>;
   formatEntityState?: (stateObj: HassEntity, state?: string) => string;
   callWS<T>(message: Readonly<Record<string, unknown>>): Promise<T>;
   callApi?<T>(method: 'GET' | 'POST', path: string): Promise<T>;

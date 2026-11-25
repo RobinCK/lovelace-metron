@@ -5,6 +5,7 @@ import { MetronCalendarCard } from './cards/calendar/calendar-card';
 import { MetronClockCard } from './cards/clock/clock-card';
 import { MetronCorridorCard } from './cards/corridor/corridor-card';
 import { MetronDevicesCard } from './cards/devices/devices-card';
+import { MetronLoadsCard } from './cards/loads/loads-card';
 import { MetronDurationCard } from './cards/duration/duration-card';
 import { MetronEnergyDayCard } from './cards/energy-day/energy-day-card';
 import { MetronExpansionCard } from './cards/expansion/expansion-card';
@@ -70,6 +71,13 @@ export const CARDS: readonly CardDefinition[] = [
     element: MetronDevicesCard,
     name: 'Metron · Consumers',
     description: 'Device power and energy today with shares, hourly sparklines and run states.',
+  },
+  {
+    type: 'metron-loads-card',
+    element: MetronLoadsCard,
+    name: 'Metron · Loads',
+    description:
+      'Every metered device by load, with a details window for its power, days and share.',
   },
   {
     type: 'metron-energy-day-card',

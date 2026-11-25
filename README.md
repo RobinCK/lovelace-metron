@@ -102,7 +102,8 @@ Available sizes and the default of every card:
   Solar forecast, Solar expansion.
 - **Small, medium, large; the default follows the content:** Load now (large with phases),
   Tiles (one row of tiles small, two medium, more large), Live power (one sensor small, up to four
-  medium), Consumers (up to four devices medium), Outage headroom (up to three appliances medium),
+  medium), Consumers (up to four devices medium), Loads (up to three devices medium), Outage
+  headroom (up to three appliances medium),
   Losses (up to three stages medium), PV strings (up to four strings medium), Period comparison
   (up to five metrics medium), Day clock (medium).
 - **Small, medium, large; medium by default:** Period bars.
@@ -120,6 +121,7 @@ Available sizes and the default of every card:
 | Tiles             | `metron-tile-card`              | Entity tiles with hourly sparklines                                     |
 | Live power        | `metron-live-card`              | Minute bars for the last hour                                           |
 | Consumers         | `metron-devices-card`           | Devices: power, energy today, run state, unaccounted                    |
+| Loads             | `metron-loads-card`             | Every metered device by load, with a details window per device          |
 | Load now          | `metron-load-card`              | Consumption against the input limit, phases and their imbalance         |
 | Outage headroom   | `metron-headroom-card`          | What can be switched on: free power per phase and the battery           |
 | Energy day        | `metron-energy-day-card`        | Half-hour production and consumption of a day, sources and destinations |
@@ -353,6 +355,51 @@ devices:
 Energy today comes from long-term statistics, so lifetime counters and daily meters both work.
 Without an energy sensor the energy is integrated from 5-minute power statistics. A `status`
 entity replaces the run state text, `cycle: true` shows when the last run finished.
+
+### Loads — `custom:metron-loads-card`
+
+<img src="docs/images/loads.png" width="480" alt="Loads"> <img src="docs/images/loads-details.png" width="420" alt="Device details">
+
+All metered devices in one list: the power now, the last 24 hours as a sparkline and the energy
+today, with the four biggest loads coloured and the share of each in the bar. With a site power
+sensor the card also shows what share of the site load is metered and the unmetered rest. Sort by
+power, energy today or name and hide the idle devices right in the card.
+
+Tap a device, a segment of the bar or a legend entry to open its details: the power over the last
+24 hours by 5 minutes, the energy per day for 7 or 30 days with the average, today, the last 7 and
+30 days, the peak of the day and its share of the site consumption today. The tiles switch the
+chart (the peak tile marks the peak on it), the arrows go to the previous and next device in the
+list, and the entity at the bottom opens it in Home Assistant. Everything comes from the
+long-term statistics; the energy is integrated from the power when a device has no energy sensor.
+
+Small shows the total, the bar and the three biggest loads; medium adds the list, large the legend
+and today's total. The list scrolls inside the card.
+
+```yaml
+type: custom:metron-loads-card
+site_power: sensor.house_power
+devices:
+  - name: Dryer
+    area: Laundry
+    power: sensor.dryer_power
+    energy: sensor.dryer_energy
+    icon: mdi:tumble-dryer
+  - name: Warm floor
+    power: sensor.warm_floor_power
+    icon: mdi:heating-coil
+```
+
+| Option        | Default | Description                                                                 |
+| ------------- | ------- | --------------------------------------------------------------------------- |
+| `devices`     | —       | `power` (required), `energy`, `name`, `area`, `icon`, `color`.              |
+| `site_power`  | —       | Site or house power: the share of the site load and the unmetered rest.     |
+| `site_energy` | —       | Site energy counter for the share today; otherwise `site_power` integrated. |
+| `sort`        | `power` | Initial order: `power`, `today` or `name`.                                  |
+| `active_only` | `false` | Start with the idle and offline devices hidden.                             |
+| `threshold`   | `3`     | Power above which a device counts as active, W.                             |
+
+The area comes from Home Assistant when the entity or its device has one. The four biggest loads
+take the solar, grid, battery and home colours; `color` fixes a colour for a device.
 
 ### Load now — `custom:metron-load-card`
 
